@@ -2,7 +2,7 @@ my_data segment
 input_buffer db 50,?,50 dup('$') ; Input buffer of size 50 bytes
 new_line_text db 10, 13, "$"
 
-buffer db 50, ?, 50 dup('$')
+parse_buffer db 50, ?, 50 dup('$')
 
 my_data ends
 
@@ -54,14 +54,14 @@ my_code segment
     ;========================================================
     parse_line:
         mov si, offset input_buffer + 2         ; Move input_buffer to si (+2 ommits length and CR)
-        mov di, offset buffer                   ; Move output buffer offset ti di
+        mov di, offset parse_buffer                   ; Move output buffer offset ti di
 
         parse_loop:
             mov al, [si]                        ; Read character from source into al
             mov [di], al                        ; Copy character into buffer
 
             cmp al, 32                          ; If character is space, print word and return to loop
-            je print_word
+            je handle_word
 
             cmp al, '$'                         ; If character is '$', print word and end loop
             je end_loop
@@ -71,15 +71,15 @@ my_code segment
 
             loop parse_loop
 
-        print_word:
-            mov dx, offset buffer
+        handle_word:
+            mov dx, offset parse_buffer
             call my_print
             
             mov dx, offset new_line_text
             call my_print
 
             mov byte ptr [di], 0                ; Clear buffer after printing word
-            mov di, offset buffer               ; Reset di register, so it points once again to start of buffer
+            mov di, offset parse_buffer               ; Reset di register, so it points once again to start of buffer
 
             inc si                              ; Inc si, so we don't and in infinite loop
 
@@ -88,7 +88,7 @@ my_code segment
             ret
 
         end_loop:
-            mov dx, offset buffer
+            mov dx, offset parse_buffer
             call my_print
             
             mov dx, offset new_line_text
