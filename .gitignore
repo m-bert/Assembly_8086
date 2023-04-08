@@ -1,0 +1,9 @@
+calculator/*.exe
+calculator/*.obj
+calculator/ML*
+calculator/DOS*
+
+tests/*.exe
+tests/*.obj
+tests/ML*
+tests/DOS*

@@ -6,7 +6,7 @@ my_data ends
 my_code segment
     main:
         mov ax, my_data                 ; Move input_prompt segment to ax
-        mov dx, offset input_prompt    ; Move input_prompt offset to dx
+        mov dx, offset input_prompt     ; Move input_prompt offset to dx
 
         call my_print
 
