@@ -1,6 +1,6 @@
 my_data segment
 input_prompt db "Wprowadz dzialanie: $"
-input_buffer db 50,?,50 dup('$') ; input buffer of size 50 bytes
+input_buffer db 50,?,50 dup('$') ; Input buffer of size 50 bytes
 new_line_text db 10, 13, "$"
 my_data ends
 
