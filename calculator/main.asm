@@ -13,28 +13,33 @@ my_data segment
     two db "dwa$"
     three db "trzy$"
     four db "cztery$"
-    five db "pięć$"
-    six db "sześć$"
+    five db "piec$"
+    six db "szesc$"
     seven db "siedem$"
     eight db "osiem$"
-    nine db "dziewięć$"
-    eleven db "jedenaście$"
-    twelve db "dwanaście$"
-    thirteen db "trzynaście$"
-    fourteen db "czternaście$"
-    fifteen db "piętnaście$"
-    sixteen db "szesnaście$"
-    seventeen db "siedemnaście$"
-    eighteen db "osiemnaście$"
-    ninetten db "dziewiętnaście$"
-    twenty db "dwadzieścia$"
-    thirty db "trzydzieści$"
-    forty db "czterdzieści$"
-    fifty db "pięćdziesiąt$"
-    sixty db "sześćdziesiąt$"
-    seventy db "siedemdziesiąt$"
-    eighty db "osiemdziesiąt$"
-    ninety db "dziewięćdziesiąt$"
+    nine db "dziewiec$"
+    eleven db "jedenascie$"
+    twelve db "dwanaśsie$"
+    thirteen db "trzynascie$"
+    fourteen db "czternascie$"
+    fifteen db "pietnascie$"
+    sixteen db "szesnascie$"
+    seventeen db "siedemnascie$"
+    eighteen db "osiemnascie$"
+    ninetten db "dziewietnascie$"
+    twenty db "dwadziescia$"
+    thirty db "trzydziesci$"
+    forty db "czterdziesci$"
+    fifty db "piecdziesiat$"
+    sixty db "szescdziesiat$"
+    seventy db "siedemdziesiat$"
+    eighty db "osiemdziesiat$"
+    ninety db "dziewiecdziesiat$"
+
+    ;Variables that store operations
+    plus db "plus$"
+    minus db "minus$"
+    times db "razy$"
 
 my_data ends
 
@@ -110,12 +115,20 @@ my_code segment
             inc si
             inc di
 
+
             loop parse_loop
 
+        ;--------------------------------------------------------
+        ; handle_word - procedure that calls choose_operator on
+        ; each of input words, then clears the buffer and returns
+        ; to the parsing loop
+        ;--------------------------------------------------------
         handle_word:
-            call choose_operator                    
+            push si
+            call choose_operator  
+            call clear_buffer ; Clear buffer after printing word; -1 to finish exactly at given place
+            pop si
 
-            mov byte ptr [di], 0                    ; Clear buffer after printing word
             mov di, offset parse_buffer             ; Reset di register, so it points once again to start of buffer
 
             inc si                                  ; Inc si, so we don't end in infinite loop
@@ -124,23 +137,34 @@ my_code segment
 
 
         end_loop:
-            call choose_operator                    
+            call choose_operator
+            call end_program
+
+    clear_buffer:
+        mov si, offset parse_buffer
+        mov cx, 50
+
+        clear_loop:
+            mov byte ptr[si], "$"
+            inc si
+            loop clear_loop  
+
+        ret               
             
     ;========================================================
     ; choose_operator - handler for each of input words
     ;========================================================
     choose_operator:
-        mov ax, '$'
-        mov [di], ax
-
-        ; mov dx, offset parse_buffer
-        ; call my_print
-        ; mov dx, offset new_line
-        ; call my_print
-
         mov si, offset parse_buffer
         mov di, offset eight
+        call compare_strings
 
+        mov si, offset parse_buffer
+        mov di, offset nine
+        call compare_strings
+
+        mov si, offset parse_buffer
+        mov di, offset plus
         call compare_strings
 
         ret
@@ -157,7 +181,7 @@ my_code segment
         compare_loop:
             mov al, [si]                        ; Move character from adress si to al
             cmp al, [di]                        ; Compare character stored in al to character at address di
-            jne end_compare                     ; If characters are not equal end loop
+            jne end_compare                     ; If characters are not equal end loop                   
 
             cmp al, '$'
             je match_found
@@ -173,16 +197,18 @@ my_code segment
             mov dx, offset new_line
             call my_print 
 
-            call end_program
+            ret
+
 
         match_found:
             mov dx, offset one     
             call my_print                       
 
             mov dx, offset new_line      
-            call my_print                      
+            call my_print   
 
-            call end_program
+            ret                   
+
         
 my_code ends
 
