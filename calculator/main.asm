@@ -53,9 +53,9 @@ my_code segment
         mov dx, offset new_line
         call my_print                                
 
-        call parse_line
+        jmp parse_line
 
-        call end_program
+        ; call end_program
 
     ;========================================================
     ; end_program - procedure that terminates program
@@ -105,40 +105,18 @@ my_code segment
             mov al, [si]                            ; Read character from source into al
 
             cmp al, 32                              ; If character is space, handle word and return to loop
-            je handle_word
+            je choose_operator
 
             cmp al, 13                              ; If character is '$', handle word and end loop
-            je end_loop
+            je choose_operator
 
             mov [di], al                            ; Copy character into buffer
 
             inc si
             inc di
 
-
             loop parse_loop
 
-        ;--------------------------------------------------------
-        ; handle_word - procedure that calls choose_operator on
-        ; each of input words, then clears the buffer and returns
-        ; to the parsing loop
-        ;--------------------------------------------------------
-        handle_word:
-            push si
-            call choose_operator  
-            call clear_buffer ; Clear buffer after printing word; -1 to finish exactly at given place
-            pop si
-
-            mov di, offset parse_buffer             ; Reset di register, so it points once again to start of buffer
-
-            inc si                                  ; Inc si, so we don't end in infinite loop
-
-            jmp parse_loop                          ; Go back to our parsing loop
-
-
-        end_loop:
-            call choose_operator
-            call end_program
 
     clear_buffer:
         mov si, offset parse_buffer
@@ -155,19 +133,77 @@ my_code segment
     ; choose_operator - handler for each of input words
     ;========================================================
     choose_operator:
+        push si
+        push ax
+
+        mov si, offset parse_buffer
+        mov di, offset zero
+        mov dx, 0
+        call compare_strings
+
+        mov si, offset parse_buffer
+        mov di, offset one
+        mov dx, 1
+        call compare_strings
+
+        mov si, offset parse_buffer
+        mov di, offset two
+        mov dx, 2
+        call compare_strings
+
+        mov si, offset parse_buffer
+        mov di, offset three
+        mov dx, 3
+        call compare_strings
+
+        mov si, offset parse_buffer
+        mov di, offset four
+        mov dx, 4
+        call compare_strings
+
+        mov si, offset parse_buffer
+        mov di, offset five
+        mov dx, 5
+        call compare_strings
+
+        mov si, offset parse_buffer
+        mov di, offset six
+        mov dx, 6
+        call compare_strings
+
+        mov si, offset parse_buffer
+        mov di, offset seven
+        mov dx, 7
+        call compare_strings
+
         mov si, offset parse_buffer
         mov di, offset eight
+        mov dx, 8
         call compare_strings
 
         mov si, offset parse_buffer
         mov di, offset nine
+        mov dx, 9
         call compare_strings
+
+        ;============================ 
 
         mov si, offset parse_buffer
         mov di, offset plus
+        mov dx, "+"
         call compare_strings
 
-        ret
+        mov si, offset parse_buffer
+        mov di, offset minus
+        mov dx, "-"
+        call compare_strings
+
+        mov si, offset parse_buffer
+        mov di, offset times
+        mov dx, "*"
+        call compare_strings
+
+        jmp end_program
 
     ;===================================================================================
     ; compare_strings - compares string from source (SI) to string in destination (DI) 
@@ -177,14 +213,13 @@ my_code segment
     ; di: offset of string to compare to
     ;===================================================================================
     compare_strings:
-        ; Main loop
         compare_loop:
             mov al, [si]                        ; Move character from adress si to al
             cmp al, [di]                        ; Compare character stored in al to character at address di
             jne end_compare                     ; If characters are not equal end loop                   
 
             cmp al, '$'
-            je match_found
+            je add_to_stack
 
             inc si                              ; Increment si index
             inc di                              ; Increment di index
@@ -192,22 +227,74 @@ my_code segment
             loop compare_loop                   ; Loop back
 
         end_compare:    
-            mov dx, offset zero
-            call my_print 
-            mov dx, offset new_line
-            call my_print 
-
             ret
 
 
-        match_found:
-            mov dx, offset one     
-            call my_print                       
+    add_to_stack:
+        pop ax ;remove return address from stack
+        jmp back_to_parsing
 
-            mov dx, offset new_line      
-            call my_print   
+    back_to_parsing:
+        call clear_buffer ; Clear buffer after printing word; -1 to finish exactly at given place
 
-            ret                   
+        pop ax
+        pop si
+
+        push dx
+
+        cmp al, 13
+        je perform_operation
+
+        mov di, offset parse_buffer             ; Reset di register, so it points once again to start of buffer
+        inc si                                  ; Inc si, so we don't end in infinite loop
+
+        jmp parse_loop                          ; Go back to our parsing loop
+
+
+    perform_operation:
+        pop dx
+        pop bx
+        pop ax    
+
+        ; mov dx, offset one
+        ; call my_print
+
+        ; jmp end_program
+
+        add ax, dx
+        jmp print_number
+
+
+
+    print_number:
+        ; Push to stack character '$' - this will indicate that all digits have been read
+        mov bx, '$'
+        push bx
+
+        mov bx, 10                              ; Move base of our system to bx to perform division
+
+        divide_loop:
+            xor dx, dx                          ; Clear dx register
+            div bx                              ; Divide value in ax by bx
+            push dx                             ; Push remainder to stack
+            cmp ax, 0                           ; Check if all digits have been pushed to stack
+            jne divide_loop                     ; If there are more digits, loop back
+
+        print_loop:
+            pop dx                              ; Get element from stack
+
+            ; If value is '$', then whole number have been read, so we can end program
+            cmp dx, '$'                         
+            je end_program
+
+            add dl, '0'                         ; Add '0' to convert digit to ASCII
+            mov ah, 02h                         ; 02h - code to print digit
+            int 21h                             ; 21h - DOS interruption (with flag 02h)
+            loop print_loop                     ; Loop back to print remaining digits
+
+        jmp end_program
+        
+               
 
         
 my_code ends
