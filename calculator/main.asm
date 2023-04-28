@@ -256,15 +256,30 @@ my_code segment
         pop bx
         pop ax    
 
-        ; mov dx, offset one
-        ; call my_print
+        cmp bx, '+'
+        je perform_addition
 
-        ; jmp end_program
+        cmp bx, '-'
+        je perform_subtraction
+
+        cmp bx, '*'
+        je perform_multiplication
 
         add ax, dx
         jmp print_number
 
 
+    perform_addition:
+        add ax, dx 
+        jmp print_number
+
+    perform_subtraction:
+        sub ax, dx
+        jmp print_number
+
+    perform_multiplication:
+        mul dx
+        jmp print_number
 
     print_number:
         ; Push to stack character '$' - this will indicate that all digits have been read
