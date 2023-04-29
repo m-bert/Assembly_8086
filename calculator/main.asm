@@ -6,6 +6,7 @@ my_data segment
     unknown_operator_msg db "Podano niewlasciwy operator!$"
     unknown_argument_msg db "Blad danych wejsciowych!$"
     invalid_arguments_msg db "Bledne argumenty dzialania!$"
+    invalid_arguments_number_msg db "Bledna ilosc argumentow wejsciowych!$"
 
     new_line db 10, 13, "$"
 
@@ -94,8 +95,9 @@ my_code segment
     ; parse_line - procedure that parses input word by word 
     ;========================================================
     parse_line:
+        mov bx, 0
         mov si, offset input_buffer + 2             ; Move input_buffer to si (+2 ommits length and CR)
-        mov di, offset parse_buffer                 ; Move output buffer offset ti di
+        mov di, offset parse_buffer + 2                 ; Move output buffer offset to di
 
         ; Loop that scans input char by char and splits it into 
         ; words containted in parse_buffer
@@ -103,10 +105,10 @@ my_code segment
             mov al, [si]                            ; Read character from source into al
 
             cmp al, 32                              ; If character is space, handle word and return to loop
-            je choose_operator
+            je handle_space
 
             cmp al, 13                              ; If character is '$', handle word and end loop
-            je choose_operator
+            je handle_eof
 
             mov [di], al                            ; Copy character into buffer
 
@@ -117,7 +119,7 @@ my_code segment
 
 
     clear_buffer:
-        mov si, offset parse_buffer
+        mov si, offset parse_buffer + 2
         mov cx, 50
 
         clear_loop:
@@ -125,7 +127,35 @@ my_code segment
             inc si
             loop clear_loop  
 
-        ret               
+        ret
+
+    handle_space:
+        push di
+
+        mov di, offset parse_buffer + 2
+        mov dl, [di]
+        
+        pop di
+
+        cmp dl, "$"
+        jne choose_operator
+
+        inc si
+        jmp parse_loop        
+
+    handle_eof:
+        push di
+
+        mov di, offset parse_buffer + 2
+        mov dl, [di]
+        
+        pop di
+
+        cmp dl, "$"
+        jne choose_operator
+
+        inc si
+        jmp check_arguments_amount 
             
     ;========================================================
     ; choose_operator - handler for each of input words
@@ -134,69 +164,69 @@ my_code segment
         push si
         push ax
 
-        mov si, offset parse_buffer
+        mov si, offset parse_buffer + 2
         mov di, offset zero
         mov dx, 0
         call compare_strings
 
-        mov si, offset parse_buffer
+        mov si, offset parse_buffer + 2
         mov di, offset one
         mov dx, 1
         call compare_strings
 
-        mov si, offset parse_buffer
+        mov si, offset parse_buffer + 2
         mov di, offset two
         mov dx, 2
         call compare_strings
 
-        mov si, offset parse_buffer
+        mov si, offset parse_buffer + 2
         mov di, offset three
         mov dx, 3
         call compare_strings
 
-        mov si, offset parse_buffer
+        mov si, offset parse_buffer + 2
         mov di, offset four
         mov dx, 4
         call compare_strings
 
-        mov si, offset parse_buffer
+        mov si, offset parse_buffer + 2
         mov di, offset five
         mov dx, 5
         call compare_strings
 
-        mov si, offset parse_buffer
+        mov si, offset parse_buffer + 2
         mov di, offset six
         mov dx, 6
         call compare_strings
 
-        mov si, offset parse_buffer
+        mov si, offset parse_buffer + 2
         mov di, offset seven
         mov dx, 7
         call compare_strings
 
-        mov si, offset parse_buffer
+        mov si, offset parse_buffer + 2
         mov di, offset eight
         mov dx, 8
         call compare_strings
 
-        mov si, offset parse_buffer
+        mov si, offset parse_buffer + 2
         mov di, offset nine
         mov dx, 9
         call compare_strings
 
         ;============================ 
 
-        mov si, offset parse_buffer
+        mov si, offset parse_buffer + 2
         mov di, offset plus
         mov dx, "+"
         call compare_strings
 
-        mov si, offset parse_buffer
+        mov si, offset parse_buffer + 2
         mov di, offset minus
         mov dx, "-"
         call compare_strings
 
-        mov si, offset parse_buffer
+        mov si, offset parse_buffer + 2
         mov di, offset times
         mov dx, "*"
         call compare_strings
@@ -239,14 +269,22 @@ my_code segment
         pop si
 
         push dx
+        inc bx
 
         cmp al, 13
-        je perform_operation
+        je check_arguments_amount
 
-        mov di, offset parse_buffer             ; Reset di register, so it points once again to start of buffer
+        mov di, offset parse_buffer + 2             ; Reset di register, so it points once again to start of buffer
         inc si                                  ; Inc si, so we don't end in infinite loop
 
         jmp parse_loop                          ; Go back to our parsing loop
+
+
+    check_arguments_amount:
+        cmp bx, 3
+        jne fail_invalid_arguments_number
+
+        jmp perform_operation
 
 
     perform_operation:
@@ -254,7 +292,7 @@ my_code segment
         pop bx
         pop ax
 
-        cmp ax, 0
+        cmp ax, 9
         jg fail_invalid_arguments
 
         cmp dx, 9
@@ -329,6 +367,12 @@ my_code segment
 
     fail_invalid_arguments:
         mov dx, offset invalid_arguments_msg
+        call my_print
+
+        jmp end_program
+
+    fail_invalid_arguments_number:
+        mov dx, offset invalid_arguments_number_msg
         call my_print
 
         jmp end_program
