@@ -1,16 +1,22 @@
+;==================================================================================================
+; DATA SEGMENT
 my_data segment
+
     ; User prompts
     input_prompt db "Wprowadz dzialanie: $"
     output_prompt db "Wynik dzialania to: $"
 
+    ; Fail messages
     unknown_operator_msg db "Podano niewlasciwy operator!$"
     unknown_argument_msg db "Blad danych wejsciowych!$"
     invalid_arguments_msg db "Bledne argumenty dzialania!$"
     invalid_arguments_number_msg db "Bledna ilosc argumentow wejsciowych!$"
 
+    ; Separators
     new_line db 10, 13, "$"
     space db " $"
 
+    ; Buffers
     input_buffer db 50, ?, 50 dup('$')             
     parse_buffer db 50, ?, 50 dup('$')
 
@@ -50,7 +56,20 @@ my_data segment
     times db "razy$"
 
 my_data ends
+;==================================================================================================
 
+;==================================================================================================
+; OVERVIEW
+;
+;
+;
+;
+;
+;==================================================================================================
+
+
+;==================================================================================================
+; CODE SEGMENT
 my_code segment
     main:
         mov dx, offset input_prompt                  ; Set input_prompt as parameter for my_print
@@ -63,22 +82,20 @@ my_code segment
 
         jmp parse_line
 
-        ; call end_program
+    ; ;========================================================
+    ; ; my_print - procedure that prints string 
+    ; ;
+    ; ; Parameters:
+    ; ; dx: offset of string to be printed
+    ; ;========================================================
+    ; my_print:
+    ;     mov ax, seg my_data                         ; Move my_data segment to ax
+    ;     mov ds, ax                                  ; Move my_data segment from ax to ds
 
-    ;========================================================
-    ; my_print - procedure that prints string 
-    ;
-    ; Parameters:
-    ; dx: offset of string to be printed
-    ;========================================================
-    my_print:
-        mov ax, seg my_data                         ; Move my_data segment to ax
-        mov ds, ax                                  ; Move my_data segment from ax to ds
+    ;     mov ah, 09h                                 ; 09h - code for printing string
+    ;     int 21h                                     ; 21h - DOS interruption (with flag 09h)
 
-        mov ah, 09h                                 ; 09h - code for printing string
-        int 21h                                     ; 21h - DOS interruption (with flag 09h)
-
-        ret                                         ; Return from procedure
+    ;     ret                                         ; Return from procedure
 
     ;========================================================
     ; my_input - procedure that gets user input
@@ -235,51 +252,68 @@ my_code segment
 
         jmp fail_unknown_argument
 
-    ;===================================================================================
+    ;--------------------------------------------------------------------------------------------------------------------------------
     ; compare_strings - compares string from source (SI) to string in destination (DI) 
     ;
     ; Parameters:
-    ; si: offset of string that is being compared (namely user input)
-    ; di: offset of string to compare to
-    ;===================================================================================
+    ; si: offset of source string that is being compared (namely user input)
+    ; di: offset of destination string to compare to
+    ;--------------------------------------------------------------------------------------------------------------------------------
     compare_strings:
         compare_loop:
-            mov al, [si]                        ; Move character from adress si to al
-            cmp al, [di]                        ; Compare character stored in al to character at address di
-            jne end_compare                     ; If characters are not equal end loop                   
+            mov al, [si]                                                    ; Move current character from source to al
+            cmp al, [di]                                                    ; Compare current character from source to character in destination
+            jne end_compare                                                 ; If characters are not equal end loop                   
 
-            cmp al, '$'
-            je add_to_stack
+            cmp al, '$'                                                     ; If current character is "$", string match
+            je remove_return_address                                        ; End loop with matching strings
 
-            inc si                              ; Increment si index
-            inc di                              ; Increment di index
+            inc si                                                          ; Increment si index - change current character in source
+            inc di                                                          ; Increment di index - change current character in destination
 
-            loop compare_loop                   ; Loop back
+            loop compare_loop                                               ; Loop back to check next character
 
         end_compare:    
-            ret
+            ret                                                             ; Strings are not equal, so we go back to check next operator
 
+        remove_return_address:
+            pop ax                                                          ; Strings do match, but program got here through "call" instruction.
+                                                                            ; That means, that return address is still on top of the stack and we have
+                                                                            ; to manually pop it.
 
-    add_to_stack:
-        pop ax ;remove return address from stack
-        jmp back_to_parsing
+            jmp back_to_parsing                                             ; We go back to parsing next word in input
 
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; back_to_parsing - procedure that does cleanup, so that parse line will correctly scan next input token
+    ;--------------------------------------------------------------------------------------------------------------------------------
     back_to_parsing:
-        call clear_buffer ; Clear buffer after printing word; -1 to finish exactly at given place
+        call clear_buffer                                                   ; Clear parsing buffer
 
-        pop ax
-        pop si
+        pop ax                                                              ; Value at al stores last character read from input
+                                                                            ; Based on that we can check, whether it was 13, which means
+                                                                            ; that we reached end of user input and we can now start checking
+                                                                            ; received arguments
 
-        push dx
-        inc bx
+        pop si                                                              ; Value that is being popped to si stores address of last character read from input
 
-        cmp al, 13
-        je check_arguments
+        push dx                                                             ; At this point, dx stores argument for our operation, so we store its value in stack
 
-        mov di, offset parse_buffer + 2             ; Reset di register, so it points once again to start of buffer
-        inc si                                  ; Inc si, so we don't end in infinite loop
+        inc bx                                                              ; bx is used as a counter for number of passed arguments, so after
+                                                                            ; parsing each of them, we have to increment value of bx
 
-        jmp parse_loop                          ; Go back to our parsing loop
+        cmp al, 13                                                          ; If last character in input was 13, it means that we finished parsing user's input
+                                                                            ; and now we can proceed to check whether arguments are valid
+
+        je check_arguments                                                  ; Jump to procedure that checks arguments
+
+        mov di, offset parse_buffer + 2                                     ; If last character wasn't 13, it means that we still have to parse rest of user input
+                                                                            ; We reset di register, so it points once again to start of parsing buffer
+
+        inc si                                                              ; At this point we know, that last character read from input was space (32)
+                                                                            ; In order not to end up in infinite loop, we have to increment value of si, 
+                                                                            ; so it points to the next character in user input
+
+        jmp parse_loop                                                      ; Go back to our parsing loop
 
 
     check_arguments:
@@ -323,6 +357,26 @@ my_code segment
     perform_multiplication:
         mul dx
         jmp print_result
+
+
+    ;=========================================================================================================
+    ; PRINTS
+    ;=========================================================================================================
+
+    ;========================================================
+    ; my_print - procedure that prints string 
+    ;
+    ; Parameters:
+    ; dx: offset of string to be printed
+    ;========================================================
+    my_print:
+        mov ax, seg my_data                         ; Move my_data segment to ax
+        mov ds, ax                                  ; Move my_data segment from ax to ds
+
+        mov ah, 09h                                 ; 09h - code for printing string
+        int 21h                                     ; 21h - DOS interruption (with flag 09h)
+
+        ret                                         ; Return from procedure
 
 
     print_result:
@@ -467,8 +521,6 @@ my_code segment
             cmp dx, 9
             je print_nine
 
-
-    ;PRINT NUMBERS
 
     print_zero:
         mov dx, offset zero
@@ -675,46 +727,60 @@ my_code segment
 
         jmp print_last_digit
         
+    ;================================================================================================================================
     ; FAILS
+    ;================================================================================================================================
 
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; fail_unknown_operator - procedure that ends program when operator is different than {+, -, *}
+    ;--------------------------------------------------------------------------------------------------------------------------------
     fail_unknown_operator:
-        mov dx, offset unknown_operator_msg
-        call my_print
+        mov dx, offset unknown_operator_msg                                 ; Set my_print parameter to unknown_operator_msg
+        call my_print                                                       ; Display error message
+        jmp end_program                                                     ; Exit program
 
-        jmp end_program
-
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; fail_unknown_operator - procedure that ends program when input contains unknown token
+    ;--------------------------------------------------------------------------------------------------------------------------------
     fail_unknown_argument:
-        mov dx, offset unknown_argument_msg
-        call my_print
+        mov dx, offset unknown_argument_msg                                 ; Set my_print parameter to unknown_argument_msg
+        call my_print                                                       ; Display error message
+        jmp end_program                                                     ; Exit program
 
-        jmp end_program
-
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; fail_invalid_arguments - procedure that ends program when either first or last argument is not a digit
+    ;--------------------------------------------------------------------------------------------------------------------------------
     fail_invalid_arguments:
-        mov dx, offset invalid_arguments_msg
-        call my_print
+        mov dx, offset invalid_arguments_msg                                ; Set my_print parameter to invalid_arguments_msg
+        call my_print                                                       ; Display error message
+        jmp end_program                                                     ; Exit program
 
-        jmp end_program
-
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; fail_invalid_arguments_number - procedure that ends program when user entered wrong amount of arguments
+    ;--------------------------------------------------------------------------------------------------------------------------------
     fail_invalid_arguments_number:
-        mov dx, offset invalid_arguments_number_msg
-        call my_print
-
-        jmp end_program
+        mov dx, offset invalid_arguments_number_msg                         ; Set my_print parameter to invalid_arguments_number_msg
+        call my_print                                                       ; Display error message
+        jmp end_program                                                     ; Exit program
         
-    ;========================================================
+    ;=========================================================================================================
     ; end_program - procedure that terminates program
-    ;========================================================
+    ;=========================================================================================================
     end_program:
-        mov ah, 4Ch                                 ; 4Ch - code to exit program
-        int 21h                                     ; 21h - DOS interruption (with flag 09h)
+        mov ah, 4Ch                                                         ; 4Ch - code to exit program
+        int 21h                                                             ; 21h - DOS interruption (with flag 09h)
 
         
 my_code ends
+;==================================================================================================
 
+;==================================================================================================
+; STACK SEGMENT
 my_stack segment stack
     dw 300 dup(?)
     stack_top dw ?
 my_stack ends  
+;==================================================================================================
 
 end main
 
