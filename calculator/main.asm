@@ -5,6 +5,7 @@ my_data segment
     ; User prompts
     input_prompt db "Wprowadz dzialanie: $"
     output_prompt db "Wynik dzialania to: $"
+    result_prompt db "Wynikiem dzialania jest: $"
 
     ; Fail messages
     unknown_operator_msg db "Podano niewlasciwy operator!$"
@@ -387,6 +388,13 @@ my_code segment
     ; print_result_wrapper - wrapper for printing result of our operation, which checks if result is negative
     ;--------------------------------------------------------------------------------------------------------------------------------
     print_result_wrapper:
+        push ax                                                             ; Store value of our result on stack (because ax is modifed in my_print precedure)
+
+        mov dx, offset result_prompt                                        ; Set my_print parameter to result prompt
+        call my_print                                                       ; Print result prompt
+        
+        pop ax                                                              ; Get back value of our result
+
         cmp ax, 0                                                           ; Compare value of result with 0
         jl print_minus                                                      ; If our result is negative, we print minus before rest of result
 
@@ -477,6 +485,8 @@ my_code segment
         je print_nineteen
 
         ; Cases where result > 20:
+        xor dx, dx                                                          ; Clear dx which will store unit part of the result
+
         mov bx, 10                                                          ; Set bx value to 10. This will be used to divide result by 10
                                                                             ; so that we get the tens part and the unit part
 
