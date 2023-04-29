@@ -33,7 +33,7 @@ my_data segment
     nine db "dziewiec$"
     ten db "dziesiec$"
     eleven db "jedenascie$"
-    twelve db "dwanaśsie$"
+    twelve db "dwanascie$"
     thirteen db "trzynascie$"
     fourteen db "czternascie$"
     fifteen db "pietnascie$"
@@ -82,20 +82,6 @@ my_code segment
 
         jmp parse_line
 
-    ; ;========================================================
-    ; ; my_print - procedure that prints string 
-    ; ;
-    ; ; Parameters:
-    ; ; dx: offset of string to be printed
-    ; ;========================================================
-    ; my_print:
-    ;     mov ax, seg my_data                         ; Move my_data segment to ax
-    ;     mov ds, ax                                  ; Move my_data segment from ax to ds
-
-    ;     mov ah, 09h                                 ; 09h - code for printing string
-    ;     int 21h                                     ; 21h - DOS interruption (with flag 09h)
-
-    ;     ret                                         ; Return from procedure
 
     ;========================================================
     ; my_input - procedure that gets user input
@@ -176,17 +162,26 @@ my_code segment
         inc si
         jmp check_arguments 
             
-    ;========================================================
-    ; choose_operator - handler for each of input words
-    ;========================================================
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; choose_operator - procedure that recognizes inpout token
+    ;--------------------------------------------------------------------------------------------------------------------------------
     choose_operator:
-        push si
-        push ax
+        push si                                                             ; In comparing string we will be using di and si registers
+                                                                            ; Since we parsed whole token, di register will be reset after
+                                                                            ; recognizing token
+                                                                            ; However, we have to keep value of si, which stores current posiiton 
+                                                                            ; in user input, to be able to parse rest of the user input 
 
-        mov si, offset parse_buffer + 2
-        mov di, offset zero
-        mov dx, 0
-        call compare_strings
+        push ax                                                             ; al stores last character read from user input. We will need this
+                                                                            ; value to decide whether we've finished parsing or not
+                                                                            ; Because we can't push only al to stack, we push ax instead
+                                                                            
+        ; Recognizing digits (all of the blocks below work in the same way)
+
+        mov si, offset parse_buffer + 2                                     ; Set si to point to beginning of parse buffer (+2 to omit length and CR)
+        mov di, offset zero                                                 ; Set di to first digit to compare to
+        mov dx, 0                                                           ; Set dx to mapped equivalent of our token. This will be later pushed to stack
+        call compare_strings                                                ; Call comparing method
 
         mov si, offset parse_buffer + 2
         mov di, offset one
@@ -233,7 +228,7 @@ my_code segment
         mov dx, 9
         call compare_strings
 
-        ;============================ 
+        ; Recognizing operator 
 
         mov si, offset parse_buffer + 2
         mov di, offset plus
@@ -250,7 +245,8 @@ my_code segment
         mov dx, "*"
         call compare_strings
 
-        jmp fail_unknown_argument
+        jmp fail_unknown_argument                                           ; If the token was not recognized, we exit program
+                                                                            ; with appropriate error message
 
     ;--------------------------------------------------------------------------------------------------------------------------------
     ; compare_strings - compares string from source (SI) to string in destination (DI) 
@@ -296,7 +292,7 @@ my_code segment
 
         pop si                                                              ; Value that is being popped to si stores address of last character read from input
 
-        push dx                                                             ; At this point, dx stores argument for our operation, so we store its value in stack
+        push dx                                                             ; At this point, dx stores mapped argument for our operation, so we store its value in stack
 
         inc bx                                                              ; bx is used as a counter for number of passed arguments, so after
                                                                             ; parsing each of them, we have to increment value of bx
@@ -315,96 +311,133 @@ my_code segment
 
         jmp parse_loop                                                      ; Go back to our parsing loop
 
-
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; check_arguments - procedure that checks if arguments enetred by user are valid
+    ;--------------------------------------------------------------------------------------------------------------------------------
     check_arguments:
-        cmp bx, 3
-        jne fail_invalid_arguments_number
+        cmp bx, 3                                                           ; bx stores amount of arguments that user entered.
+                                                                            ; If amount of these arguments is not equal to 3, 
+                                                                            ; we display error message and exit the program
 
-        pop dx
-        pop bx
-        pop ax
+        jne fail_invalid_arguments_number                                   ; Fail program if user entered wrong amount of arguments
 
-        cmp ax, 9
-        jg fail_invalid_arguments
+        pop dx                                                              ; Pop to dx third argument entered by user
+        pop bx                                                              ; Pop to bx second argument entered by user
+        pop ax                                                              ; Pop to ax first argument entered by user
 
-        cmp dx, 9
-        jg fail_invalid_arguments
+        cmp ax, 9                                                           ; ax should store first digit for our operation
+                                                                            ; Since this program accepts only digits 0-9 and operators {+, -, *}
+                                                                            ; if value of ax is greater than 9, that means that user enetred operation type
+                                                                            ; as first parameter.
+                                                                            ; In that case, we end the program with proper error message
 
-        jmp perform_operation
+        jg fail_invalid_arguments                                           ; Fail program if first argument is not a digit
+
+        cmp dx, 9                                                           ; dx should store second digit for our operation
+        jg fail_invalid_arguments                                           ; Fail program if third argument is not a digit
+
+        jmp perform_operation                                               ; If user properly entered digit, we try to perform operation
 
 
+    ;================================================================================================================================
+    ; OPERATIONS
+    ;================================================================================================================================
+
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; perform_operation - procedure that tries to perform operation entered by user
+    ;--------------------------------------------------------------------------------------------------------------------------------
     perform_operation:
-        cmp bx, '+'
-        je perform_addition
+        cmp bx, '+'                                                         ; bx stores operation type that user entered, in case of '+'
+        je perform_addition                                                 ; we perform addition
 
-        cmp bx, '-'
-        je perform_subtraction
+        cmp bx, '-'                                                         ; In case of '-' we perform subtraction
+        je perform_subtraction                                              
 
-        cmp bx, '*'
-        je perform_multiplication
+        cmp bx, '*'                                                         ; In case of '*' we perform multiplication
+        je perform_multiplication                                       
 
-        jmp fail_unknown_operator
+        jmp fail_unknown_operator                                           ; If the operator is not one of {+, -, *} (which at that point means that
+                                                                            ; user entered digit as second argument), we end program with error message
 
-
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; perform_addition - procedure that adds numbers entered by user
+    ;--------------------------------------------------------------------------------------------------------------------------------
     perform_addition:
-        add ax, dx 
-        jmp print_result
+        add ax, dx                                                          ; Add to first argument in ax value of second argument in dx
+                                                                            ; Result of this operation in stored in ax
+        jmp print_result_wrapper                                                    ; Jump to print result
 
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; perform_subtraction - procedure that subtracts numbers entered by user
+    ;--------------------------------------------------------------------------------------------------------------------------------
     perform_subtraction:
-        sub ax, dx
-        jmp print_result
+        sub ax, dx                                                          ; Subtract from first argument in ax value of second argument in dx
+                                                                            ; Result of this operation in stored in ax
+        jmp print_result_wrapper                                                    ; Jump to print result
 
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; perform_multiplication - procedure that multiplies numbers entered by user
+    ;--------------------------------------------------------------------------------------------------------------------------------
     perform_multiplication:
-        mul dx
-        jmp print_result
+        mul dx                                                              ; Multiply first argument stored in ax by value of second argument stored in dx
+                                                                            ; Result of this operation in stored in ax
+        jmp print_result_wrapper                                                    ; Jump to print result
 
 
-    ;=========================================================================================================
+    ;================================================================================================================================
     ; PRINTS
-    ;=========================================================================================================
+    ;================================================================================================================================
 
-    ;========================================================
+    ;--------------------------------------------------------------------------------------------------------------------------------
     ; my_print - procedure that prints string 
     ;
     ; Parameters:
     ; dx: offset of string to be printed
-    ;========================================================
+    ;--------------------------------------------------------------------------------------------------------------------------------
     my_print:
-        mov ax, seg my_data                         ; Move my_data segment to ax
-        mov ds, ax                                  ; Move my_data segment from ax to ds
+        mov ax, seg my_data                                                 ; Move my_data segment to ax
+        mov ds, ax                                                          ; Move my_data segment from ax to ds
 
-        mov ah, 09h                                 ; 09h - code for printing string
-        int 21h                                     ; 21h - DOS interruption (with flag 09h)
+        mov ah, 09h                                                         ; 09h - code for printing string
+        int 21h                                                             ; 21h - DOS interruption (with flag 09h)
 
-        ret                                         ; Return from procedure
+        ret                                                                 ; Return from procedure
 
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; print_result_wrapper - wrapper for printing result of our operation, which checks if result is negative
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    print_result_wrapper:
+        cmp ax, 0                                                           ; Compare value of result with 0
+        jl print_minus                                                      ; If our result is negative, we print minus before rest of result
 
-    print_result:
-        cmp ax, 0
-        jl print_minus
+        jmp print_result                                                    ; If result is non-negative, we print it immediately
 
-        jmp print_value
-
-
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; print_minus - procedure that prints minus if result is negative
+    ;--------------------------------------------------------------------------------------------------------------------------------
     print_minus:
-        push ax
+        push ax                                                             ; Store value of our result on stack (because ax is modifed in my_print precedure)
 
-        mov dx, offset minus
-        call my_print
+        mov dx, offset minus                                                ; Set my_print parameter to minus
+        call my_print                                                       ; Print minus
 
-        mov dx, offset space
-        call my_print
+        mov dx, offset space                                                ; Set my_print parameter to space
+        call my_print                                                       ; Print space
 
-        pop ax
+        pop ax                                                              ; Get back value of our result
 
-        mov bx, -1
-        mul bx
+        mov bx, -1                                                          ; Set value of bx to -1, to convert our result to positive value
+        mul bx                                                              ; Convert result to its absolute value
 
-        jmp print_value
+        jmp print_result                                                    ; Print result
 
-    print_value:
-        cmp ax, 0
-        je print_zero
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; print_result - procedure that prints result
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    print_result:
+        ; Cases where result < 20 (all of them work in the same way):
+        cmp ax, 0                                                           ; Compare result value to 0
+        je print_zero                                                       ; If it matches, print 0 and exit program
 
         cmp ax, 1
         je print_one
@@ -460,11 +493,20 @@ my_code segment
         cmp ax, 18
         je print_eighteen
 
-        ; ax - dziesiatki
-        ; dx - jednosci
-        mov bx, 10
-        div bx
+        cmp ax, 19
+        je print_nineteen
 
+        ; Cases where result > 20:
+        mov bx, 10                                                          ; Set bx value to 10. This will be used to divide result by 10
+                                                                            ; so that we get the tens part and the unit part
+
+        div bx                                                              ; Divide ax (our result) by 10 (bx). After this operation:
+                                                                            ; ax stores tens part of the result
+                                                                            ; dx stores unit part of the result
+
+        ;--------------------------------------------------------------------------------------------------------------------------------
+        ; print_first_digit - procedure that prints first digit of result (namely tens part)
+        ;--------------------------------------------------------------------------------------------------------------------------------
         print_first_digit:
             cmp ax, 2
             je print_twenty
@@ -490,9 +532,12 @@ my_code segment
             cmp ax, 9
             je print_ninety
 
+        ;--------------------------------------------------------------------------------------------------------------------------------
+        ; print_last_digit - procedure that prints last digit of result (namely unit part)
+        ;--------------------------------------------------------------------------------------------------------------------------------
         print_last_digit:
-            cmp dx, 0
-            je end_program
+            cmp dx, 0                                                       ; Special case, where we do not want to print result like "twenty zero",
+            je end_program                                                  ; so we end program immediately
 
             cmp dx, 1
             je print_one
@@ -521,11 +566,13 @@ my_code segment
             cmp dx, 9
             je print_nine
 
-
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; print_x - procedures that prints x value as text
+    ;--------------------------------------------------------------------------------------------------------------------------------
     print_zero:
-        mov dx, offset zero
-        call my_print
-        jmp end_program
+        mov dx, offset zero                                                 ; Set my_print parameter to zero
+        call my_print                                                       ; Print zero
+        jmp end_program                                                     ; End program
 
     print_one:
         mov dx, offset one
@@ -623,17 +670,19 @@ my_code segment
         jmp end_program
 
     print_twenty:
-        push dx
+        push dx                                                             ; In this case, we are printing first part of the result, namely tens part
+                                                                            ; dx stores unit part of the result, but its value will be modified in 
+                                                                            ; my_print procedure, so we have to store it on stack
 
-        mov dx, offset twenty
-        call my_print
+        mov dx, offset twenty                                               ; Set my_print parameter to twenty
+        call my_print                                                       ; Print twenty
 
-        mov dx, offset space
-        call my_print
+        mov dx, offset space                                                ; Set my_print parameter to space
+        call my_print                                                       ; Print space
 
-        pop dx
+        pop dx                                                              ; Restore value of dx to get back unit part of result
 
-        jmp print_last_digit
+        jmp print_last_digit                                                ; Jump to method that prints last digit of result
 
 
     print_thirty:
