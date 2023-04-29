@@ -59,11 +59,20 @@ my_data ends
 ;==================================================================================================
 
 ;==================================================================================================
-; OVERVIEW
+;   OVERVIEW
 ;
+;   This program is an implementation of text calculator in Assembly 8086 MASM
+; 
+;   At the beginning, program asks to enter operation in form <digit> <operator> <digit>, where:
+;   digit is a digit in text format {"zero", "jeden", ..., "dziewiec"}
+;   operator is one of the following: {"plus", "minus", "razy"}
 ;
-;
-;
+;   Then algorithm proceedes to parse user input token by token. If the token is not recognized, program finishes with error message.
+;   If the token is recognized, its mapped value is pushed to stack and bx register, that stores amount of passed arguments, is incremented.
+;   After parsing whole input, if number of parameters is not equal to 3, program ends with error message.
+;   If number of arguments is equal to 3, all 3 parameters are popped from stack, and then checked if they're correct, ie.:
+;   if the first and third parameters are digit and the second parameter is operator. If parameters are invalid, program ends with error message.
+;   After that, program prints the result and exits.
 ;
 ;==================================================================================================
 
@@ -72,95 +81,66 @@ my_data ends
 ; CODE SEGMENT
 my_code segment
     main:
-        mov dx, offset input_prompt                  ; Set input_prompt as parameter for my_print
-        call my_print                                
+        mov dx, offset input_prompt                                         ; Set my_print parameter to input_prompt
+        call my_print                                                       ; Print message to user
 
-        call my_input
+        call get_input                                                      ; Call procedure to get input from user
 
-        mov dx, offset new_line
-        call my_print                                
+        mov dx, offset new_line                                             ; Set my_print parameter to new_line
+        call my_print                                                       ; Print new line
 
-        jmp parse_line
+        jmp parse_line                                                      ; Start algorithm
 
-
-    ;========================================================
-    ; my_input - procedure that gets user input
-    ;========================================================
-    my_input:
-        mov ax, seg my_data                         ; Move my_data segment to ax
-        mov ds, ax                                  ; Move my_data segment from ax to ds
-
-        mov dx, offset input_buffer                 ; Moving buffer offset to dx
-        mov ah, 0Ah                                 ; 0Ah - code for getting user input
-        int 21h                                     ; 21h - DOS interruption (with flag 0Ah)
-
-        ret                                         ; Return from procedure   
-
-    ;========================================================
-    ; parse_line - procedure that parses input word by word 
-    ;========================================================
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; parse_line - procedure that parses user input - splits it into tokens and performs mapping on each of them
+    ;--------------------------------------------------------------------------------------------------------------------------------
     parse_line:
-        mov bx, 0
-        mov si, offset input_buffer + 2             ; Move input_buffer to si (+2 ommits length and CR)
-        mov di, offset parse_buffer + 2                 ; Move output buffer offset to di
+        mov bx, 0                                                           ; Set value of bx to 0. This register will be used as
+                                                                            ; a counter for tokens amount, therefore will help to identify
+                                                                            ; if user entered right amount of arguments
 
-        ; Loop that scans input char by char and splits it into 
-        ; words containted in parse_buffer
+        mov si, offset input_buffer + 2                                     ; Set si to point to first character of input buffer
+        mov di, offset parse_buffer + 2                                     ; Set di to point to first character of parse buffer
+
+        ;--------------------------------------------------------------------------------------------------------------------------------
+        ; parse_loop - loop that scans each character from user input and after receiving ' ' or '$' proceedes to recognize token
+        ;--------------------------------------------------------------------------------------------------------------------------------
         parse_loop:
-            mov al, [si]                            ; Read character from source into al
+            mov al, [si]                                                    ; Read character from source into al
 
-            cmp al, 32                              ; If character is space, handle word and return to loop
-            je handle_space
+            cmp al, 32                                                      ; If character is space, we either found token, or a sequeance of spaces
+            je handle_separator                                             ; so we call handle separator to check which situation occurred
 
-            cmp al, 13                              ; If character is '$', handle word and end loop
-            je handle_eof
+            cmp al, 13                                                      ; If character is '$', we either found token, or finished input with sequence
+            je handle_separator                                             ; of spaces, so we call handle separator to check which situation occurred
 
-            mov [di], al                            ; Copy character into buffer
+            mov [di], al                                                    ; Copy character from input into parse buffer
 
-            inc si
-            inc di
+            inc si                                                          ; Increment si to point to next character of input buffer
+            inc di                                                          ; Increment di to point to next character of parse buffer
 
-            loop parse_loop
+            loop parse_loop                                                 ; Loop back to find rest of tokens
 
+        ;--------------------------------------------------------------------------------------------------------------------------------
+        ; handle_separator - procedure that analyzes parse buffer after reading ' ' or '$'
+        ;--------------------------------------------------------------------------------------------------------------------------------
+        handle_separator:
+            mov di, offset parse_buffer + 2                                 ; Set di to point to first character of parse buffer
+            mov dl, [di]                                                    ; Set dl value to first character of parse buffer
+                                                                            ; Here dl is used, because later on program checks if al, that currently
+                                                                            ; points to last read character from user input is '$', so it is better to use dl
+                                                                            ; instead of putting ax on stack and then popping it (dx is not in use at that point)
+            
+            cmp dl, '$'                                                     ; Check if first character of parse buffer is '$'
+            jne choose_operator                                             ; If it isn't, it means that parse buffer contains token and we have to map it to
+                                                                            ; operators used in our program
 
-    clear_buffer:
-        mov si, offset parse_buffer + 2
-        mov cx, 50
+            cmp al, 13                                                      ; If last character was 13 and parse buffer is empty,
+            je check_arguments                                              ; we can proceed to check whether arguments are valid
 
-        clear_loop:
-            mov byte ptr[si], "$"
-            inc si
-            loop clear_loop  
+            inc si                                                          ; Otherwise, if character was ' ' and parse buffer is empty
+            jmp parse_loop                                                  ; we go back to parsing loop to find next token
 
-        ret
-
-    handle_space:
-        push di
-
-        mov di, offset parse_buffer + 2
-        mov dl, [di]
-        
-        pop di
-
-        cmp dl, "$"
-        jne choose_operator
-
-        inc si
-        jmp parse_loop        
-
-    handle_eof:
-        push di
-
-        mov di, offset parse_buffer + 2
-        mov dl, [di]
-        
-        pop di
-
-        cmp dl, "$"
-        jne choose_operator
-
-        inc si
-        jmp check_arguments 
             
     ;--------------------------------------------------------------------------------------------------------------------------------
     ; choose_operator - procedure that recognizes inpout token
@@ -365,7 +345,7 @@ my_code segment
     perform_addition:
         add ax, dx                                                          ; Add to first argument in ax value of second argument in dx
                                                                             ; Result of this operation in stored in ax
-        jmp print_result_wrapper                                                    ; Jump to print result
+        jmp print_result_wrapper                                            ; Jump to print result
 
     ;--------------------------------------------------------------------------------------------------------------------------------
     ; perform_subtraction - procedure that subtracts numbers entered by user
@@ -373,7 +353,7 @@ my_code segment
     perform_subtraction:
         sub ax, dx                                                          ; Subtract from first argument in ax value of second argument in dx
                                                                             ; Result of this operation in stored in ax
-        jmp print_result_wrapper                                                    ; Jump to print result
+        jmp print_result_wrapper                                            ; Jump to print result
 
     ;--------------------------------------------------------------------------------------------------------------------------------
     ; perform_multiplication - procedure that multiplies numbers entered by user
@@ -381,7 +361,7 @@ my_code segment
     perform_multiplication:
         mul dx                                                              ; Multiply first argument stored in ax by value of second argument stored in dx
                                                                             ; Result of this operation in stored in ax
-        jmp print_result_wrapper                                                    ; Jump to print result
+        jmp print_result_wrapper                                            ; Jump to print result
 
 
     ;================================================================================================================================
@@ -775,6 +755,41 @@ my_code segment
         pop dx
 
         jmp print_last_digit
+
+
+    ;================================================================================================================================
+    ; UTILS
+    ;================================================================================================================================
+
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; get_input - procedure that gets input from user
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    get_input:
+        mov ax, seg my_data                                                 ; Move my_data segment to ax
+        mov ds, ax                                                          ; Move my_data segment from ax to ds
+
+        mov dx, offset input_buffer                                         ; Set value of dx to offset of input buffer
+        mov ah, 0Ah                                                         ; Set ah value to 0Ah - code for getting user input
+        int 21h                                                             ; 21h - DOS interruption (with flag 0Ah)
+
+        ret                                                                 ; Return from procedure   
+
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; clear_buffer - procedure that clears parse buffer after mapping token
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    clear_buffer:
+        mov si, offset parse_buffer + 2                                     ; Set si to beginning of parse buffer
+        mov cx, 50                                                          ; Parse buffer has length 50, so we put 50 into cx to loop 50 times
+
+        ;--------------------------------------------------------------------------------------------------------------------------------
+        ; clear_loop - loop that resets each of parse buffer characters to '$'
+        ;--------------------------------------------------------------------------------------------------------------------------------
+        clear_loop:
+            mov byte ptr[si], '$'                                           ; Replace character at [si] with '$'
+            inc si                                                          ; Increment si to point to next character
+            loop clear_loop                                                 ; Loop back to clear whole buffer
+
+        ret                                                                 ; Return from procedure
         
     ;================================================================================================================================
     ; FAILS
@@ -811,6 +826,8 @@ my_code segment
         mov dx, offset invalid_arguments_number_msg                         ; Set my_print parameter to invalid_arguments_number_msg
         call my_print                                                       ; Display error message
         jmp end_program                                                     ; Exit program
+
+
         
     ;=========================================================================================================
     ; end_program - procedure that terminates program
