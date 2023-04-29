@@ -9,6 +9,7 @@ my_data segment
     invalid_arguments_number_msg db "Bledna ilosc argumentow wejsciowych!$"
 
     new_line db 10, 13, "$"
+    space db " $"
 
     input_buffer db 50, ?, 50 dup('$')             
     parse_buffer db 50, ?, 50 dup('$')
@@ -24,6 +25,7 @@ my_data segment
     seven db "siedem$"
     eight db "osiem$"
     nine db "dziewiec$"
+    ten db "dziesiec$"
     eleven db "jedenascie$"
     twelve db "dwanaśsie$"
     thirteen db "trzynascie$"
@@ -32,7 +34,7 @@ my_data segment
     sixteen db "szesnascie$"
     seventeen db "siedemnascie$"
     eighteen db "osiemnascie$"
-    ninetten db "dziewietnascie$"
+    nineteen db "dziewietnascie$"
     twenty db "dwadziescia$"
     thirty db "trzydziesci$"
     forty db "czterdziesci$"
@@ -155,7 +157,7 @@ my_code segment
         jne choose_operator
 
         inc si
-        jmp check_arguments_amount 
+        jmp check_arguments 
             
     ;========================================================
     ; choose_operator - handler for each of input words
@@ -272,7 +274,7 @@ my_code segment
         inc bx
 
         cmp al, 13
-        je check_arguments_amount
+        je check_arguments
 
         mov di, offset parse_buffer + 2             ; Reset di register, so it points once again to start of buffer
         inc si                                  ; Inc si, so we don't end in infinite loop
@@ -280,14 +282,10 @@ my_code segment
         jmp parse_loop                          ; Go back to our parsing loop
 
 
-    check_arguments_amount:
+    check_arguments:
         cmp bx, 3
         jne fail_invalid_arguments_number
 
-        jmp perform_operation
-
-
-    perform_operation:
         pop dx
         pop bx
         pop ax
@@ -296,8 +294,12 @@ my_code segment
         jg fail_invalid_arguments
 
         cmp dx, 9
-        jg fail_invalid_arguments 
+        jg fail_invalid_arguments
 
+        jmp perform_operation
+
+
+    perform_operation:
         cmp bx, '+'
         je perform_addition
 
@@ -312,45 +314,367 @@ my_code segment
 
     perform_addition:
         add ax, dx 
-        jmp print_number
+        jmp print_result
 
     perform_subtraction:
         sub ax, dx
-        jmp print_number
+        jmp print_result
 
     perform_multiplication:
         mul dx
-        jmp print_number
+        jmp print_result
 
-    print_number:
-        ; Push to stack character '$' - this will indicate that all digits have been read
-        mov bx, '$'
-        push bx
 
-        mov bx, 10                              ; Move base of our system to bx to perform division
+    print_result:
+        cmp ax, 0
+        jl print_minus
 
-        divide_loop:
-            xor dx, dx                          ; Clear dx register
-            div bx                              ; Divide value in ax by bx
-            push dx                             ; Push remainder to stack
-            cmp ax, 0                           ; Check if all digits have been pushed to stack
-            jne divide_loop                     ; If there are more digits, loop back
+        jmp print_value
 
-        print_loop:
-            pop dx                              ; Get element from stack
 
-            ; If value is '$', then whole number have been read, so we can end program
-            cmp dx, '$'                         
+    print_minus:
+        push ax
+
+        mov dx, offset minus
+        call my_print
+
+        mov dx, offset space
+        call my_print
+
+        pop ax
+
+        mov bx, -1
+        mul bx
+
+        jmp print_value
+
+    print_value:
+        cmp ax, 0
+        je print_zero
+
+        cmp ax, 1
+        je print_one
+
+        cmp ax, 2
+        je print_two
+
+        cmp ax, 3
+        je print_three
+
+        cmp ax, 4
+        je print_four
+
+        cmp ax, 5
+        je print_five
+
+        cmp ax, 6
+        je print_six
+
+        cmp ax, 7
+        je print_seven
+
+        cmp ax, 8
+        je print_eight
+
+        cmp ax, 9
+        je print_nine
+
+        cmp ax, 10
+        je print_ten
+
+        cmp ax, 11
+        je print_eleven
+
+        cmp ax, 12
+        je print_twelve
+
+        cmp ax, 13
+        je print_thirteen
+
+        cmp ax, 14
+        je print_fourteen
+
+        cmp ax, 15
+        je print_fifteen
+
+        cmp ax, 16
+        je print_sixteen
+
+        cmp ax, 17
+        je print_seventeen
+
+        cmp ax, 18
+        je print_eighteen
+
+        ; ax - dziesiatki
+        ; dx - jednosci
+        mov bx, 10
+        div bx
+
+        print_first_digit:
+            cmp ax, 2
+            je print_twenty
+
+            cmp ax, 3
+            je print_thirty
+
+            cmp ax, 4
+            je print_forty
+
+            cmp ax, 5
+            je print_fifty
+
+            cmp ax, 6
+            je print_sixty
+
+            cmp ax, 7
+            je print_seventy
+
+            cmp ax, 8
+            je print_eighty
+
+            cmp ax, 9
+            je print_ninety
+
+        print_last_digit:
+            cmp dx, 0
             je end_program
 
-            add dl, '0'                         ; Add '0' to convert digit to ASCII
-            mov ah, 02h                         ; 02h - code to print digit
-            int 21h                             ; 21h - DOS interruption (with flag 02h)
-            loop print_loop                     ; Loop back to print remaining digits
+            cmp dx, 1
+            je print_one
 
+            cmp dx, 2
+            je print_two
+
+            cmp dx, 3
+            je print_three
+
+            cmp dx, 4
+            je print_four
+
+            cmp dx, 5
+            je print_five
+
+            cmp dx, 6
+            je print_six
+
+            cmp dx, 7
+            je print_seven
+
+            cmp dx, 8
+            je print_eight
+
+            cmp dx, 9
+            je print_nine
+
+
+    ;PRINT NUMBERS
+
+    print_zero:
+        mov dx, offset zero
+        call my_print
         jmp end_program
 
+    print_one:
+        mov dx, offset one
+        call my_print
+        jmp end_program
 
+    print_two:
+        mov dx, offset two
+        call my_print
+        jmp end_program
+
+    print_three:
+        mov dx, offset three
+        call my_print
+        jmp end_program
+
+    print_four:
+        mov dx, offset four
+        call my_print
+        jmp end_program
+
+    print_five:
+        mov dx, offset five
+        call my_print
+        jmp end_program
+
+    print_six:
+        mov dx, offset six
+        call my_print
+        jmp end_program
+
+    print_seven:
+        mov dx, offset seven
+        call my_print
+        jmp end_program
+
+    print_eight:
+        mov dx, offset eight
+        call my_print
+        jmp end_program
+
+    print_nine:
+        mov dx, offset nine
+        call my_print
+        jmp end_program
+
+    print_ten:
+        mov dx, offset ten
+        call my_print
+        jmp end_program
+
+    print_eleven:
+        mov dx, offset eleven
+        call my_print
+        jmp end_program
+
+    print_twelve:
+        mov dx, offset twelve
+        call my_print
+        jmp end_program
+
+    print_thirteen:
+        mov dx, offset thirteen
+        call my_print
+        jmp end_program
+
+    print_fourteen:
+        mov dx, offset fourteen
+        call my_print
+        jmp end_program
+
+    print_fifteen:
+        mov dx, offset fifteen
+        call my_print
+        jmp end_program
+
+    print_sixteen:
+        mov dx, offset sixteen
+        call my_print
+        jmp end_program
+
+    print_seventeen:
+        mov dx, offset seventeen
+        call my_print
+        jmp end_program
+
+    print_eighteen:
+        mov dx, offset eighteen
+        call my_print
+        jmp end_program
+
+    print_nineteen:
+        mov dx, offset nineteen
+        call my_print
+        jmp end_program
+
+    print_twenty:
+        push dx
+
+        mov dx, offset twenty
+        call my_print
+
+        mov dx, offset space
+        call my_print
+
+        pop dx
+
+        jmp print_last_digit
+
+
+    print_thirty:
+        push dx
+
+        mov dx, offset thirty
+        call my_print
+
+        mov dx, offset space
+        call my_print
+
+        pop dx
+
+        jmp print_last_digit
+
+    print_forty:
+        push dx
+
+        mov dx, offset forty
+        call my_print
+
+        mov dx, offset space
+        call my_print
+
+        pop dx
+
+        jmp print_last_digit
+
+    print_fifty:
+        push dx
+
+        mov dx, offset fifty
+        call my_print
+
+        mov dx, offset space
+        call my_print
+
+        pop dx
+
+        jmp print_last_digit
+
+    print_sixty:
+        push dx
+
+        mov dx, offset sixty
+        call my_print
+
+        mov dx, offset space
+        call my_print
+
+        pop dx
+
+        jmp print_last_digit
+
+    print_seventy:
+        push dx
+
+        mov dx, offset seventy
+        call my_print
+
+        mov dx, offset space
+        call my_print
+
+        pop dx
+
+        jmp print_last_digit
+
+    print_eighty:
+        push dx
+
+        mov dx, offset eighty
+        call my_print
+
+        mov dx, offset space
+        call my_print
+
+        pop dx
+
+        jmp print_last_digit
+
+    print_ninety:
+        push dx
+
+        mov dx, offset ninety
+        call my_print
+
+        mov dx, offset space
+        call my_print
+
+        pop dx
+
+        jmp print_last_digit
+        
     ; FAILS
 
     fail_unknown_operator:
