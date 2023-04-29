@@ -2,6 +2,11 @@ my_data segment
     ; User prompts
     input_prompt db "Wprowadz dzialanie: $"
     output_prompt db "Wynik dzialania to: $"
+
+    unknown_operator_msg db "Podano niewlasciwy operator!$"
+    unknown_argument_msg db "Blad danych wejsciowych!$"
+    invalid_arguments_msg db "Bledne argumenty dzialania!$"
+
     new_line db 10, 13, "$"
 
     input_buffer db 50, ?, 50 dup('$')             
@@ -56,13 +61,6 @@ my_code segment
         jmp parse_line
 
         ; call end_program
-
-    ;========================================================
-    ; end_program - procedure that terminates program
-    ;========================================================
-    end_program:
-        mov ah, 4Ch                                 ; 4Ch - code to exit program
-        int 21h                                     ; 21h - DOS interruption (with flag 09h)
 
     ;========================================================
     ; my_print - procedure that prints string 
@@ -203,7 +201,7 @@ my_code segment
         mov dx, "*"
         call compare_strings
 
-        jmp end_program
+        jmp fail_unknown_argument
 
     ;===================================================================================
     ; compare_strings - compares string from source (SI) to string in destination (DI) 
@@ -254,7 +252,13 @@ my_code segment
     perform_operation:
         pop dx
         pop bx
-        pop ax    
+        pop ax
+
+        cmp ax, 0
+        jg fail_invalid_arguments
+
+        cmp dx, 9
+        jg fail_invalid_arguments 
 
         cmp bx, '+'
         je perform_addition
@@ -265,8 +269,7 @@ my_code segment
         cmp bx, '*'
         je perform_multiplication
 
-        add ax, dx
-        jmp print_number
+        jmp fail_unknown_operator
 
 
     perform_addition:
@@ -308,8 +311,34 @@ my_code segment
             loop print_loop                     ; Loop back to print remaining digits
 
         jmp end_program
+
+
+    ; FAILS
+
+    fail_unknown_operator:
+        mov dx, offset unknown_operator_msg
+        call my_print
+
+        jmp end_program
+
+    fail_unknown_argument:
+        mov dx, offset unknown_argument_msg
+        call my_print
+
+        jmp end_program
+
+    fail_invalid_arguments:
+        mov dx, offset invalid_arguments_msg
+        call my_print
+
+        jmp end_program
         
-               
+    ;========================================================
+    ; end_program - procedure that terminates program
+    ;========================================================
+    end_program:
+        mov ah, 4Ch                                 ; 4Ch - code to exit program
+        int 21h                                     ; 21h - DOS interruption (with flag 09h)
 
         
 my_code ends
