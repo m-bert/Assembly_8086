@@ -1,4 +1,4 @@
-;==================================================================================================
+;================================================================================================================================
 ; DATA SEGMENT
 my_data segment
 
@@ -57,9 +57,9 @@ my_data segment
     times db "razy$"
 
 my_data ends
-;==================================================================================================
+;================================================================================================================================
 
-;==================================================================================================
+;================================================================================================================================
 ;   OVERVIEW
 ;
 ;   This program is an implementation of text calculator in Assembly 8086 MASM
@@ -75,10 +75,10 @@ my_data ends
 ;   if the first and third parameters are digit and the second parameter is operator. If parameters are invalid, program ends with error message.
 ;   After that, program prints the result and exits.
 ;
-;==================================================================================================
+;================================================================================================================================
 
 
-;==================================================================================================
+;================================================================================================================================
 ; CODE SEGMENT
 my_code segment
     main:
@@ -423,39 +423,9 @@ my_code segment
     ; print_result - procedure that prints result
     ;--------------------------------------------------------------------------------------------------------------------------------
     print_result:
-        ; Cases where result < 20 (all of them work in the same way):
-        cmp ax, 0                                                           ; Compare result value to 0
-        je print_zero                                                       ; If it matches, print 0 and exit program
-
-        cmp ax, 1
-        je print_one
-
-        cmp ax, 2
-        je print_two
-
-        cmp ax, 3
-        je print_three
-
-        cmp ax, 4
-        je print_four
-
-        cmp ax, 5
-        je print_five
-
-        cmp ax, 6
-        je print_six
-
-        cmp ax, 7
-        je print_seven
-
-        cmp ax, 8
-        je print_eight
-
-        cmp ax, 9
-        je print_nine
-
-        cmp ax, 10
-        je print_ten
+        ; Special cases
+        cmp ax, 10                                                          ; Compare result value to 10
+        je print_ten                                                        ; If it matches, print 10 and exit program
 
         cmp ax, 11
         je print_eleven
@@ -484,20 +454,26 @@ my_code segment
         cmp ax, 19
         je print_nineteen
 
-        ; Cases where result > 20:
-        xor dx, dx                                                          ; Clear dx which will store unit part of the result
+        ; Rest of the cases
 
-        mov bx, 10                                                          ; Set bx value to 10. This will be used to divide result by 10
-                                                                            ; so that we get the tens part and the unit part
+        cmp ax, 10                                                          ; If result < 10, then it contains only one digit
+        jl print_last_digit                                                 ; so we can print only last digit
 
-        div bx                                                              ; Divide ax (our result) by 10 (bx). After this operation:
-                                                                            ; ax stores tens part of the result
-                                                                            ; dx stores unit part of the result
+        jmp print_first_digit                                               ; Jump to procedure that prints first digit of the result
 
         ;--------------------------------------------------------------------------------------------------------------------------------
         ; print_first_digit - procedure that prints first digit of result (namely tens part)
         ;--------------------------------------------------------------------------------------------------------------------------------
         print_first_digit:
+            xor dx, dx                                                      ; Clear dx which will store unit part of the result
+
+            mov bx, 10                                                      ; Set bx value to 10. This will be used to divide result by 10
+                                                                            ; so that we get the tens part and the unit part
+
+            div bx                                                          ; Divide ax (our result) by 10 (bx). After this operation:
+                                                                            ; ax stores tens part of the result
+                                                                            ; dx stores unit part of the result
+
             cmp ax, 2
             je print_twenty
 
@@ -526,34 +502,34 @@ my_code segment
         ; print_last_digit - procedure that prints last digit of result (namely unit part)
         ;--------------------------------------------------------------------------------------------------------------------------------
         print_last_digit:
-            cmp dx, 0                                                       ; Special case, where we do not want to print result like "twenty zero",
-            je end_program                                                  ; so we end program immediately
+            cmp ax, 0                                                       
+            je print_zero                                                   
 
-            cmp dx, 1
+            cmp ax, 1
             je print_one
 
-            cmp dx, 2
+            cmp ax, 2
             je print_two
 
-            cmp dx, 3
+            cmp ax, 3
             je print_three
 
-            cmp dx, 4
+            cmp ax, 4
             je print_four
 
-            cmp dx, 5
+            cmp ax, 5
             je print_five
 
-            cmp dx, 6
+            cmp ax, 6
             je print_six
 
-            cmp dx, 7
+            cmp ax, 7
             je print_seven
 
-            cmp dx, 8
+            cmp ax, 8
             je print_eight
 
-            cmp dx, 9
+            cmp ax, 9
             je print_nine
 
     ;--------------------------------------------------------------------------------------------------------------------------------
@@ -667,12 +643,7 @@ my_code segment
         mov dx, offset twenty                                               ; Set my_print parameter to twenty
         call my_print                                                       ; Print twenty
 
-        mov dx, offset space                                                ; Set my_print parameter to space
-        call my_print                                                       ; Print space
-
-        pop dx                                                              ; Restore value of dx to get back unit part of result
-
-        jmp print_last_digit                                                ; Jump to method that prints last digit of result
+        jmp check_last_digit                                                ; Jump to procedure that cheks whether last digit is 0 or not
 
 
     print_thirty:
@@ -681,12 +652,7 @@ my_code segment
         mov dx, offset thirty
         call my_print
 
-        mov dx, offset space
-        call my_print
-
-        pop dx
-
-        jmp print_last_digit
+        jmp check_last_digit
 
     print_forty:
         push dx
@@ -694,12 +660,7 @@ my_code segment
         mov dx, offset forty
         call my_print
 
-        mov dx, offset space
-        call my_print
-
-        pop dx
-
-        jmp print_last_digit
+        jmp check_last_digit
 
     print_fifty:
         push dx
@@ -707,12 +668,7 @@ my_code segment
         mov dx, offset fifty
         call my_print
 
-        mov dx, offset space
-        call my_print
-
-        pop dx
-
-        jmp print_last_digit
+        jmp check_last_digit
 
     print_sixty:
         push dx
@@ -720,12 +676,7 @@ my_code segment
         mov dx, offset sixty
         call my_print
 
-        mov dx, offset space
-        call my_print
-
-        pop dx
-
-        jmp print_last_digit
+        jmp check_last_digit
 
     print_seventy:
         push dx
@@ -733,12 +684,7 @@ my_code segment
         mov dx, offset seventy
         call my_print
 
-        mov dx, offset space
-        call my_print
-
-        pop dx
-
-        jmp print_last_digit
+        jmp check_last_digit
 
     print_eighty:
         push dx
@@ -746,12 +692,7 @@ my_code segment
         mov dx, offset eighty
         call my_print
 
-        mov dx, offset space
-        call my_print
-
-        pop dx
-
-        jmp print_last_digit
+        jmp check_last_digit
 
     print_ninety:
         push dx
@@ -759,18 +700,12 @@ my_code segment
         mov dx, offset ninety
         call my_print
 
-        mov dx, offset space
-        call my_print
-
-        pop dx
-
-        jmp print_last_digit
-
+        jmp check_last_digit
 
     ;================================================================================================================================
     ; UTILS
     ;================================================================================================================================
-
+    
     ;--------------------------------------------------------------------------------------------------------------------------------
     ; get_input - procedure that gets input from user
     ;--------------------------------------------------------------------------------------------------------------------------------
@@ -800,6 +735,20 @@ my_code segment
             loop clear_loop                                                 ; Loop back to clear whole buffer
 
         ret                                                                 ; Return from procedure
+
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; check_last_digit - procedure that check if last digit od result is 0
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    check_last_digit:
+        mov dx, offset space                                                ; Set my_print parameter to space
+        call my_print                                                       ; Print space
+
+        pop ax                                                              ; Get last digit of result to ax
+
+        cmp ax, 0                                                           ; If last digit is 0, we end program
+        je end_program                                                      ; to avoid printing result like "thirty zero"
+
+        jmp print_last_digit                                                ; Jump to procedure that prints last digit of result
         
     ;================================================================================================================================
     ; FAILS
@@ -839,25 +788,25 @@ my_code segment
 
 
         
-    ;=========================================================================================================
+    ;================================================================================================================================
     ; end_program - procedure that terminates program
-    ;=========================================================================================================
+    ;================================================================================================================================
     end_program:
         mov ah, 4Ch                                                         ; 4Ch - code to exit program
         int 21h                                                             ; 21h - DOS interruption (with flag 09h)
 
         
 my_code ends
-;==================================================================================================
+;================================================================================================================================
 
-;==================================================================================================
+;================================================================================================================================
 ; STACK SEGMENT
 my_stack segment stack
     dw 300 dup(?)
     stack_top dw ?
 my_stack ends  
-;==================================================================================================
+;================================================================================================================================
 
-end main
+end main                                                                    ; Entry point for program
 
 
