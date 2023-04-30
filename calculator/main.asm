@@ -11,10 +11,11 @@ my_data segment
     unknown_operator_msg db "Podano niewlasciwy operator!$"
     unknown_argument_msg db "Bledny argument: $"
     invalid_arguments_msg db "Bledne argumenty dzialania!$"
-    invalid_arguments_number_msg db "Bledna ilosc argumentow wejsciowych!$"
+    invalid_arguments_number_msg db "Bledna ilosc argumentow wejsciowych!", 10, 13, '$'
+    example_msg db "Przykladowe uzycie: dwa plus dwa$"
 
     ; Separators
-    new_line db 10, 13, "$"
+    new_line db 10, 13, '$'
     space db " $"
 
     ; Buffers
@@ -797,6 +798,10 @@ my_code segment
     fail_invalid_arguments_number:
         mov dx, offset invalid_arguments_number_msg                         ; Set my_print parameter to invalid_arguments_number_msg
         call my_print                                                       ; Display error message
+
+        mov dx, offset example_msg
+        call my_print ; Display example
+
         jmp end_program                                                     ; Exit program
 
 
