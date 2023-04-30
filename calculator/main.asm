@@ -9,7 +9,7 @@ my_data segment
 
     ; Fail messages
     unknown_operator_msg db "Podano niewlasciwy operator!$"
-    unknown_argument_msg db "Blad danych wejsciowych!$"
+    unknown_argument_msg db "Bledny argument: $"
     invalid_arguments_msg db "Bledne argumenty dzialania!$"
     invalid_arguments_number_msg db "Bledna ilosc argumentow wejsciowych!$"
 
@@ -370,21 +370,6 @@ my_code segment
     ;================================================================================================================================
 
     ;--------------------------------------------------------------------------------------------------------------------------------
-    ; my_print - procedure that prints string 
-    ;
-    ; Parameters:
-    ; dx: offset of string to be printed
-    ;--------------------------------------------------------------------------------------------------------------------------------
-    my_print:
-        mov ax, seg my_data                                                 ; Move my_data segment to ax
-        mov ds, ax                                                          ; Move my_data segment from ax to ds
-
-        mov ah, 09h                                                         ; 09h - code for printing string
-        int 21h                                                             ; 21h - DOS interruption (with flag 09h)
-
-        ret                                                                 ; Return from procedure
-
-    ;--------------------------------------------------------------------------------------------------------------------------------
     ; print_result_wrapper - wrapper for printing result of our operation, which checks if result is negative
     ;--------------------------------------------------------------------------------------------------------------------------------
     print_result_wrapper:
@@ -720,9 +705,31 @@ my_code segment
         ret                                                                 ; Return from procedure   
 
     ;--------------------------------------------------------------------------------------------------------------------------------
+    ; my_print - procedure that prints string 
+    ;
+    ; Parameters:
+    ; dx: offset of string to be printed
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    my_print:
+        push ax                                                             ; Store value of ax on stack, because it will be modified in this procedure              
+
+        mov ax, seg my_data                                                 ; Move my_data segment to ax
+        mov ds, ax                                                          ; Move my_data segment from ax to ds
+
+        mov ah, 09h                                                         ; 09h - code for printing string
+        int 21h                                                             ; 21h - DOS interruption (with flag 09h)
+
+        pop ax                                                              ; Get back original value of ax
+
+        ret                                                                 ; Return from procedure
+
+    ;--------------------------------------------------------------------------------------------------------------------------------
     ; clear_buffer - procedure that clears parse buffer after mapping token
     ;--------------------------------------------------------------------------------------------------------------------------------
     clear_buffer:
+        push ax                                                             ; Store value of ax on stack, because it will be modified in this procedure
+        mov al, '$'                                                         ; Move end of string char to al
+
         mov si, offset parse_buffer + 2                                     ; Set si to beginning of parse buffer
         mov cx, 50                                                          ; Parse buffer has length 50, so we put 50 into cx to loop 50 times
 
@@ -730,9 +737,11 @@ my_code segment
         ; clear_loop - loop that resets each of parse buffer characters to '$'
         ;--------------------------------------------------------------------------------------------------------------------------------
         clear_loop:
-            mov byte ptr[si], '$'                                           ; Replace character at [si] with '$'
+            mov [si], al                                                    ; Replace character at [si] with '$'
             inc si                                                          ; Increment si to point to next character
             loop clear_loop                                                 ; Loop back to clear whole buffer
+
+        pop ax                                                              ; Get back original value of ax
 
         ret                                                                 ; Return from procedure
 
@@ -740,13 +749,13 @@ my_code segment
     ; check_last_digit - procedure that check if last digit od result is 0
     ;--------------------------------------------------------------------------------------------------------------------------------
     check_last_digit:
-        mov dx, offset space                                                ; Set my_print parameter to space
-        call my_print                                                       ; Print space
-
         pop ax                                                              ; Get last digit of result to ax
 
         cmp ax, 0                                                           ; If last digit is 0, we end program
         je end_program                                                      ; to avoid printing result like "thirty zero"
+
+        mov dx, offset space                                                ; Set my_print parameter to space
+        call my_print                                                       ; Print space
 
         jmp print_last_digit                                                ; Jump to procedure that prints last digit of result
         
@@ -768,6 +777,10 @@ my_code segment
     fail_unknown_argument:
         mov dx, offset unknown_argument_msg                                 ; Set my_print parameter to unknown_argument_msg
         call my_print                                                       ; Display error message
+
+        mov dx, offset parse_buffer + 2                                     ; Set my_print parameter to parse_buffer, which contains unknown token
+        call my_print                                                       ; Display unknown token
+
         jmp end_program                                                     ; Exit program
 
     ;--------------------------------------------------------------------------------------------------------------------------------
