@@ -101,8 +101,8 @@ my_code segment
                                                                             ; a counter for tokens amount, therefore will help to identify
                                                                             ; if user entered right amount of arguments
 
-        mov si, offset input_buffer + 2                                     ; Set si to point to first character of input buffer
-        mov di, offset parse_buffer + 2                                     ; Set di to point to first character of parse buffer
+        mov si, offset input_buffer + 2                                     ; Set si to point to first character of input buffer (+2 omits length and CR)
+        mov di, offset parse_buffer + 2                                     ; Set di to point to first character of parse buffer (+2 omits length and CR)
 
         ;--------------------------------------------------------------------------------------------------------------------------------
         ; parse_loop - loop that scans each character from user input and after receiving ' ' or '$' proceedes to recognize token
@@ -374,12 +374,8 @@ my_code segment
     ; print_result_wrapper - wrapper for printing result of our operation, which checks if result is negative
     ;--------------------------------------------------------------------------------------------------------------------------------
     print_result_wrapper:
-        push ax                                                             ; Store value of our result on stack (because ax is modifed in my_print precedure)
-
         mov dx, offset result_prompt                                        ; Set my_print parameter to result prompt
         call my_print                                                       ; Print result prompt
-        
-        pop ax                                                              ; Get back value of our result
 
         cmp ax, 0                                                           ; Compare value of result with 0
         jl print_minus                                                      ; If our result is negative, we print minus before rest of result
@@ -390,15 +386,11 @@ my_code segment
     ; print_minus - procedure that prints minus if result is negative
     ;--------------------------------------------------------------------------------------------------------------------------------
     print_minus:
-        push ax                                                             ; Store value of our result on stack (because ax is modifed in my_print precedure)
-
         mov dx, offset minus                                                ; Set my_print parameter to minus
         call my_print                                                       ; Print minus
 
         mov dx, offset space                                                ; Set my_print parameter to space
         call my_print                                                       ; Print space
-
-        pop ax                                                              ; Get back value of our result
 
         mov bx, -1                                                          ; Set value of bx to -1, to convert our result to positive value
         mul bx                                                              ; Convert result to its absolute value
@@ -731,15 +723,15 @@ my_code segment
         push ax                                                             ; Store value of ax on stack, because it will be modified in this procedure
         mov al, '$'                                                         ; Move end of string char to al
 
-        mov si, offset parse_buffer + 2                                     ; Set si to beginning of parse buffer
+        mov di, offset parse_buffer + 2                                     ; Set di to beginning of parse buffer
         mov cx, 50                                                          ; Parse buffer has length 50, so we put 50 into cx to loop 50 times
 
         ;--------------------------------------------------------------------------------------------------------------------------------
         ; clear_loop - loop that resets each of parse buffer characters to '$'
         ;--------------------------------------------------------------------------------------------------------------------------------
         clear_loop:
-            mov [si], al                                                    ; Replace character at [si] with '$'
-            inc si                                                          ; Increment si to point to next character
+            mov [di], al                                                    ; Replace character at [di] with '$'
+            inc di                                                          ; Increment di to point to next character
             loop clear_loop                                                 ; Loop back to clear whole buffer
 
         pop ax                                                              ; Get back original value of ax
@@ -819,9 +811,9 @@ my_code ends
 
 ;================================================================================================================================
 ; STACK SEGMENT
-my_stack segment stack
-    dw 300 dup(?)
-    stack_top dw ?
+my_stack segment stack                                                      ; Declare stack segment
+    dw 300 dup(?)                                                           ; Declare stack size
+    stack_top dw ?                                                          ; Declare stack top
 my_stack ends  
 ;================================================================================================================================
 
