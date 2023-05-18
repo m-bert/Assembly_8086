@@ -1,3 +1,15 @@
+; KEYS
+ESCAPE equ 01h
+LEFT equ 4Bh
+RIGHT equ 4Dh
+UP equ 48h
+DOWN equ 50h
+
+; SCREEN
+SCREEN_WIDTH equ 320
+SCREEN_HEIGHT equ 200
+
+
 ;================================================================================================================================
 ; DATA SEGMENT
 my_data segment
@@ -157,24 +169,86 @@ my_code segment
         mov ah, 0                                                           ; Code for DOS interruption to start graphic mode
         int 10h                                                             ; DOS interruption that starts the graphic interface
 
+        mov byte ptr cs:[color], 37
+
 
         elipse_loop:
-            ; call clear
-            ; call handle_key
-            ; call draw
+            call clear_screen
+            call draw
+            call handle_key
 
-
-        mov ax, 3h                                                         ; Code for DOS interruption, that sets gui to 320x200 mode with 256 colors
-        int 10h                                                             ; DOS interruption that starts the graphic interface
+            jmp elipse_loop
 
         jmp end_program
 
 
 
 
+    clear_screen:
+        mov ax, 0a000h
+        mov es, ax
+
+        xor ax, ax
+        mov di, ax
+        cld                                                                 ; di = di + 1
+        mov cx, SCREEN_WIDTH * SCREEN_HEIGHT
+        rep stosb
+
+        ret
+
+    handle_key:
+        in al, 60h
+
+        cmp al, ESCAPE
+        je restore_text_interface
+
+        cmp al, byte ptr cs:[last_pressed_key]
+        je handle_key
+
+        mov byte ptr cs:[last_pressed_key], al
+
+        cmp al, LEFT
+        je left_key
+
+        cmp al, RIGHT
+        je right_key
+
+        cmp al, UP
+        je up_key
+
+        cmp al, DOWN
+        je down_key
+
+        ret                                                                 ; Unrecognized key
+
+        left_key:
+            dec word ptr cs:[r_x]
+            ret
+        right_key:
+            inc word ptr cs:[r_x]
+            ret
+        up_key:
+            dec word ptr cs:[r_y]
+            ret
+        down_key:
+            inc word ptr cs:[r_y]
+            ret
 
 
+        
+    draw:
+        mov ax, 0a000h
+        mov es, ax
 
+        mov ax, word ptr cs:[r_y]
+        mov bx, SCREEN_WIDTH
+        mul bx
+        mov bx, word ptr cs:[r_x]
+        add bx, ax
+        mov al, byte ptr cs:[color]
+        mov byte ptr es:[bx], al
+
+        ret 
 
 
 
@@ -242,8 +316,17 @@ my_code segment
 
         pop ax                                                              ; Get back original value of ax
 
-        ret                                                                 ; Return from procedure                                        
+        ret      
         
+                                                               ; Return from procedure                                        
+        
+    ;================================================================================================================================
+    ; end_program - procedure that terminates program
+    ;================================================================================================================================
+    restore_text_interface:
+        mov ax, 3h                                                          ; Code for DOS interruption, that resets DOS to text interface
+        int 10h                                                             ; DOS interruption that starts the graphic interface
+        jmp end_program
     ;================================================================================================================================
     ; end_program - procedure that terminates program
     ;================================================================================================================================
@@ -257,7 +340,8 @@ r_x dw ?                                                                    ; X 
 r_y dw ?                                                                    ; Y radii for elipse
 x dw ?                                                                      ; x point 
 y dw ?                                                                      ; y point
-color dw ?                                                                  ; c point
+color db ?                                                                  ; c point
+last_pressed_key db ?                                                       ; Scan code of last pressed key
         
 my_code ends
 ;================================================================================================================================
