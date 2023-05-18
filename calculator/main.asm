@@ -113,6 +113,9 @@ my_code segment
             cmp al, 32                                                      ; If character is space, we either found token, or a sequeance of spaces
             je handle_separator                                             ; so we call handle separator to check which situation occurred
 
+            cmp al, 09h                                                     ; Same as above, but for tabulation
+            je handle_separator                                             
+
             cmp al, 13                                                      ; If character is '$', we either found token, or finished input with sequence
             je handle_separator                                             ; of spaces, so we call handle separator to check which situation occurred
 
