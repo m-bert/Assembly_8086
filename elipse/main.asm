@@ -5,10 +5,14 @@ RIGHT equ 4Dh
 UP equ 48h
 DOWN equ 50h
 
+CENTER_X equ 160 
+CENTER_Y equ 100
+
 ; SCREEN
 SCREEN_WIDTH equ 320
 SCREEN_HEIGHT equ 200
 
+.387
 
 ;================================================================================================================================
 ; DATA SEGMENT
@@ -155,11 +159,11 @@ my_code segment
         cmp bx, 1
         jle fail_invalid_arguments_number
     
-        pop ax                                                              ; Get first parameter from stack and store it in r_x variable 
-        mov word ptr cs:[r_x], ax
+        pop ax                                                              ; Get first parameter from stack and store it in r_y variable 
+        mov word ptr cs:[r_y], ax
 
-        pop ax                                                              ; Get second parameter from stack and store it in r_y variable
-        mov word ptr cs:[r_y], ax 
+        pop ax                                                              ; Get second parameter from stack and store it in r_x variable
+        mov word ptr cs:[r_x], ax 
         
         jmp init_gui                                                        ; Start graphic interface
 
@@ -168,9 +172,6 @@ my_code segment
         mov al, 13h                                                         ; Code for DOS interruption, that sets gui to 320x200 mode with 256 colors
         mov ah, 0                                                           ; Code for DOS interruption to start graphic mode
         int 10h                                                             ; DOS interruption that starts the graphic interface
-
-        mov byte ptr cs:[color], 37
-
 
         elipse_loop:
             call clear_screen
@@ -222,33 +223,161 @@ my_code segment
         ret                                                                 ; Unrecognized key
 
         left_key:
-            dec word ptr cs:[r_x]
+            mov bx, offset r_x
+            cmp word ptr cs:[r_x], 1
+            jg decrement
+
             ret
         right_key:
-            inc word ptr cs:[r_x]
+            mov bx, offset r_x 
+            cmp word ptr cs:[r_x], 159
+            jl increment
+
             ret
         up_key:
-            dec word ptr cs:[r_y]
+            mov bx, offset r_y
+            cmp word ptr cs:[r_y], 99
+            jl increment
+
             ret
         down_key:
-            inc word ptr cs:[r_y]
+            mov bx, offset r_y
+            cmp word ptr cs:[r_y], 1
+            jg decrement
+
+            ret
+
+        decrement:
+            dec word ptr cs:[bx]
+            ret
+        
+        increment:
+            inc word ptr cs:[bx]
             ret
 
 
         
     draw:
-        mov ax, 0a000h
-        mov es, ax
+        mov word ptr cs:[x], 0
+        mov word ptr cs:[y], 0
+        mov byte ptr cs:[color], 37
+        mov cx, word ptr cs:[r_x]
+        
 
-        mov ax, word ptr cs:[r_y]
-        mov bx, SCREEN_WIDTH
-        mul bx
-        mov bx, word ptr cs:[r_x]
-        add bx, ax
-        mov al, byte ptr cs:[color]
-        mov byte ptr es:[bx], al
+        elipse_draw_loop_from_x:
+            call calculate_elipse_from_x
+            call highlight_points
+            inc word ptr cs:[x]
+            loop elipse_draw_loop_from_x
 
-        ret 
+        mov word ptr cs:[x], 0
+        mov word ptr cs:[y], 0
+        mov byte ptr cs:[color], 37
+        mov cx, word ptr cs:[r_y]
+
+        elipse_draw_loop_from_y:
+            call calculate_elipse_from_y
+            call highlight_points
+            inc word ptr cs:[y]
+            loop elipse_draw_loop_from_y
+
+        ret
+
+    calculate_elipse_from_x:
+        finit
+        fild        word ptr cs:[x]
+        fmul        st(0), st(0)
+        fild        word ptr cs:[r_x]
+        fmul        st(0), st(0)
+        fdivp       st(1), st(0)
+        fld1
+        fsub        st(0), st(1)
+        fsqrt
+        fild        word ptr cs:[r_y]
+        fmul
+        fist        word ptr cs:[y]
+
+        ret
+
+    calculate_elipse_from_y:
+        finit
+
+        fild        word ptr cs:[y]
+        fmul        st(0), st(0)
+        fild        word ptr cs:[r_y]
+        fmul        st(0), st(0)
+        fdivp       st(1), st(0)
+        fld1
+        fsub        st(0), st(1)
+        fsqrt
+        fild        word ptr cs:[r_x]
+        fmul
+        fist        word ptr cs:[x]
+
+        ret
+
+    
+    highlight_points:
+        mov     ax, 0a000h
+        mov     es, ax
+
+        ; First point
+        mov     ax, CENTER_Y
+        add     ax, word ptr cs:[y]
+
+        mov     bx, SCREEN_WIDTH
+        mul     bx
+
+        mov     bx, CENTER_X
+        add     bx, word ptr cs:[x]
+
+        add     bx, ax
+        mov     al, byte ptr cs:[color]
+        mov     byte ptr es:[bx], al
+
+        ; Second point
+        mov     ax, CENTER_Y
+        sub     ax, word ptr cs:[y]
+
+        mov     bx, SCREEN_WIDTH
+        mul     bx
+
+        mov     bx, CENTER_X
+        sub     bx, word ptr cs:[x]
+
+        add     bx, ax
+        mov     al, byte ptr cs:[color]
+        mov     byte ptr es:[bx], al
+
+        ; Third point
+        mov     ax, CENTER_Y
+        add     ax, word ptr cs:[y]
+
+        mov     bx, SCREEN_WIDTH
+        mul     bx
+
+        mov     bx, CENTER_X
+        sub     bx, word ptr cs:[x]
+
+        add     bx, ax
+        mov     al, byte ptr cs:[color]
+        mov     byte ptr es:[bx], al
+
+        ; Fourth point
+        mov     ax, CENTER_Y
+        sub     ax, word ptr cs:[y]
+
+        mov     bx, SCREEN_WIDTH
+        mul     bx
+
+        mov     bx, CENTER_X
+        add     bx, word ptr cs:[x]
+
+        add     bx, ax
+        mov     al, byte ptr cs:[color]
+        mov     byte ptr es:[bx], al
+
+        ret
 
 
 
@@ -340,7 +469,7 @@ r_x dw ?                                                                    ; X 
 r_y dw ?                                                                    ; Y radii for elipse
 x dw ?                                                                      ; x point 
 y dw ?                                                                      ; y point
-color db ?                                                                  ; c point
+color db 13                                                                  ; c point
 last_pressed_key db ?                                                       ; Scan code of last pressed key
         
 my_code ends
