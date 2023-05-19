@@ -1,39 +1,84 @@
-; KEYS
+;================================================================================================================================
+; Defined constants
+
+;--------------------------------------------------------------------------------------------------------------------------------
+; Keys
+;--------------------------------------------------------------------------------------------------------------------------------
 ESCAPE equ 01h
 LEFT equ 4Bh
 RIGHT equ 4Dh
 UP equ 48h
 DOWN equ 50h
+KEY_R equ 13h
+KEY_G equ 22h
+KEY_B equ 30h
+SPACE equ 39h
 
+;--------------------------------------------------------------------------------------------------------------------------------
+; Elipse parameters
+;--------------------------------------------------------------------------------------------------------------------------------
 CENTER_X equ 160 
 CENTER_Y equ 100
-
 MIN_X_RADIUS equ 1
 MAX_X_RADIUS equ 159
 MIN_Y_RADIUS equ 1
 MAX_Y_RADIUS equ 99
 
 
+;--------------------------------------------------------------------------------------------------------------------------------
 ; SCREEN
+;--------------------------------------------------------------------------------------------------------------------------------
 SCREEN_WIDTH equ 320
 SCREEN_HEIGHT equ 200
+MAX_COLOR equ 255
+;================================================================================================================================
 
-.387
+.387                                                                        ; Directive that allows us to use FPU
 
 ;================================================================================================================================
-; DATA SEGMENT
+; Data segment
 my_data segment
     parse_buffer db 50, ?, 50 dup('$')
     new_line db 10, 13, '$'
     invalid_arguments_number_msg db "Bledna ilosc argumentow wejsciowych!", 10, 13, '$'
     invalid_argument_msg db "Jeden z argumentow wejsciowych nie jest liczba!", 10, 13, '$'
-    invalid_radii_msg db "Podano nieprawidłowe promienie!", 10, 13, '$'
-
+    invalid_radius_msg db "Podano nieprawidlowe promienie!", 10, 13, '$'
 my_data ends
 ;================================================================================================================================
 
 ;================================================================================================================================
-; CODE SEGMENT
+;   Overview
+;
+;   This is a program that uses VGA mode to draw elipse on screen in Assembly 8086 MASM
+;
+;   To start the program we need to pass two parameters - x and y radius for the elipse
+;   Then we can change both of them using arrow keys:
+;       - Arrow_up increments y radius
+;       - Arrow_down decrements y radius
+;       - Arrow_left decrements x radius
+;       - Arrow_right increments x radius
+;
+;   We can also change colors of the elipse:
+;       - R key changes color to red
+;       - G key changes color to green
+;       - B key changes color to blue
+;       - Space increments color value by 1, and if overflow is to happen, resets color value to 0
+;
+;   The elipse is drawn with usage of elipse equation. First we solve the equation to get y in terms of x, which gives us:
+;       y = r_y * sqrt(1-x^2/r_x^2)
+;   However using only this values will result in not closing left and right part of the elipse, since we won't get value of 0.
+;   To fix that, we analitically solve equation for x in terms of y. That gives us:
+;       x = r_x * sqrt(1-y^2/r_y^2)
+;
+;   Now we can combine both of the results which will cover all points in a first quadrant.
+;   Using symmetry of elipse, we only calculate values in first quadrant, and then apply symmetry to get all four points
+;   Also all calculations are done with respsect to center of elipse at (0,0). Later translation is applied, ti move points
+;   to actual place of the elipse (with center at 160, 100).
+;================================================================================================================================
+
+
+;================================================================================================================================
+; Code segment
 my_code segment
     main:
         ; Set stack
@@ -107,6 +152,9 @@ my_code segment
             jmp parse_loop                                                  ; we go back to parsing loop to find next token
 
 
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; parse_number - procedure that converts string to a number
+    ;--------------------------------------------------------------------------------------------------------------------------------
     parse_number:
         push bx                                                             ; Store current amount of arguments on stack
         push ax                                                             ; Store ax on stack (because al contains last read character)
@@ -161,70 +209,72 @@ my_code segment
 
     check_arguments:
         cmp bx, 2                                                           ; Check if user entered exactly 2 parameters
-        jg fail_invalid_arguments_number                                    ; If not, we exit program with proper error message
-
-        cmp bx, 1
-        jle fail_invalid_arguments_number
+        jne fail_invalid_arguments_number                                   ; If not, we exit program with proper error message
     
-        pop     ax                                                              ; Get first parameter from stack and store it in r_y variable 
-        cmp     ax, MIN_Y_RADIUS
-        jl fail_invalid_radii
+        pop ax                                                              ; Get first parameter from stack
+
+        cmp ax, MIN_Y_RADIUS                                                ; Check if y-radius is correct value (ie. that elipse with this parameter will fit on screen)
+        jl fail_invalid_radius                                               ; If not, we exit program with proper error message
         cmp ax, MAX_Y_RADIUS
-        jg fail_invalid_radii
+        jg fail_invalid_radius
 
-        mov word ptr cs:[r_y], ax
+        mov word ptr cs:[r_y], ax                                           ; Store first parameter in r_y variable 
 
-        pop ax                                                              ; Get second parameter from stack and store it in r_x variable
-        cmp     ax, MIN_X_RADIUS
-        jl fail_invalid_radii
+        pop ax                                                              ; Get second parameter from stack
+
+        cmp ax, MIN_X_RADIUS                                                ; Similar to y-radius situation
+        jl fail_invalid_radius
         cmp ax, MAX_X_RADIUS
-        jg fail_invalid_radii
-        mov word ptr cs:[r_x], ax 
+        jg fail_invalid_radius
+
+        mov word ptr cs:[r_x], ax                                           ; Store second parameter in r_x variable 
         
         jmp init_gui                                                        ; Start graphic interface
 
     init_gui:
-
         mov al, 13h                                                         ; Code for DOS interruption, that sets gui to 320x200 mode with 256 colors
         mov ah, 0                                                           ; Code for DOS interruption to start graphic mode
         int 10h                                                             ; DOS interruption that starts the graphic interface
 
-        elipse_loop:
-            call clear_screen
-            call draw
-            call handle_key
+        elipse_loop:                                                        ; Main loop of program
+            call clear_screen                                               ; Clear screen so that we see only one elipse at a time
+            call draw                                                       ; Draw elipse to the screen
+            call handle_key                                                 ; Wait for user to press a key
 
-            jmp elipse_loop
-
-        jmp end_program
+            jmp elipse_loop                                                 ; Loop back
 
 
-
-
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; clear_screen - procedure that clears screen
+    ;--------------------------------------------------------------------------------------------------------------------------------
     clear_screen:
-        mov ax, 0a000h
-        mov es, ax
+        mov ax, 0a000h                                                      ; Move to ax beginning of graphics memory
+        mov es, ax                                                          ; Store this address in es
 
-        xor ax, ax
-        mov di, ax
-        cld                                                                 ; di = di + 1
-        mov cx, SCREEN_WIDTH * SCREEN_HEIGHT
-        rep stosb
+        xor ax, ax                                                          ; Clear ax register
+        mov di, ax                                                          ; Set di to 0
 
-        ret
+        cld                                                                 ; Set flag for chain instruction. This effectively results in di += 1 after each call of chain instruction
+        mov cx, SCREEN_WIDTH * SCREEN_HEIGHT                                ; Set number of calls for chain instruction
+        rep stosb                                                           ; Call change instruction that will clear whole graphics memory
 
+        ret                                                                 ; Return from procedure
+
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; handle_key - procedure that gets key pressed by user
+    ;--------------------------------------------------------------------------------------------------------------------------------
     handle_key:
-        in al, 60h
+        in al, 60h                                                          ; Instruction that will store in al last pressed key
 
-        cmp al, ESCAPE
+        cmp al, ESCAPE                                                      ; If the key was esc, we finish program
         je restore_text_interface
 
-        cmp al, byte ptr cs:[last_pressed_key]
-        je handle_key
+        cmp al, byte ptr cs:[last_pressed_key]                              ; Pressing key generates two different scan codes - one on press and another one on release
+        je handle_key                                                       ; We can use this to check, whether key was released, so we won't perform action infinitely many times
 
-        mov byte ptr cs:[last_pressed_key], al
+        mov byte ptr cs:[last_pressed_key], al                              ; Store last pressed key in last_pressed_key variable, to make comparison above possible
 
-        cmp al, LEFT
+        cmp al, LEFT                                                        ; Here we will check which key was pressed, and then proceed with action
         je left_key
 
         cmp al, RIGHT
@@ -236,122 +286,197 @@ my_code segment
         cmp al, DOWN
         je down_key
 
+        cmp al, KEY_R
+        je r_key
+
+        cmp al, KEY_G
+        je g_key
+
+        cmp al, KEY_B
+        je b_key
+
+        cmp al, SPACE
+        je space_key
+
         ret                                                                 ; Unrecognized key
 
         left_key:
-            mov bx, offset r_x
-            cmp word ptr cs:[r_x], 1
-            jg decrement
+            mov bx, offset r_x                                              ; Store offset of radius in bx variable - this will serve as a parameter for decrement_radius procedure
+            cmp word ptr cs:[r_x], 1                                        ; If we can decrement radius, we will do this
+            jg decrement_radius
 
-            ret
-        right_key:
+            ret                                                             ; Otherwise we return
+
+        right_key:                                                          ; Same as above, but for increment
             mov bx, offset r_x 
             cmp word ptr cs:[r_x], 159
-            jl increment
+            jl increment_radius
 
             ret
+
         up_key:
             mov bx, offset r_y
             cmp word ptr cs:[r_y], 99
-            jl increment
+            jl increment_radius
 
             ret
+
         down_key:
             mov bx, offset r_y
             cmp word ptr cs:[r_y], 1
-            jg decrement
+            jg decrement_radius
 
             ret
 
-        decrement:
-            dec word ptr cs:[bx]
-            ret
-        
-        increment:
-            inc word ptr cs:[bx]
+            ;--------------------------------------------------------------------------------------------------------------------------------
+            ; decrement_radius - procedure that decrements radius passed in bx
+            ;--------------------------------------------------------------------------------------------------------------------------------
+            decrement_radius:
+                dec word ptr cs:[bx]                                        ; Decrement radius
+                ret                                                         ; Go back to main loop
+            
+            ;--------------------------------------------------------------------------------------------------------------------------------
+            ; increment_radius - procedure that increments radius passed in bx
+            ;--------------------------------------------------------------------------------------------------------------------------------
+            increment_radius:
+                inc word ptr cs:[bx]                                        ; Increment radius
+                ret                                                         ; Go back to main loop
+
+        r_key:
+            mov  byte ptr cs:[color], 40                                    ; If key was 'r', change color to red
             ret
 
+        g_key:
+            mov  byte ptr cs:[color], 50                                    ; If key was 'g', change color to green
+            ret
 
-        
+        b_key:
+            mov  byte ptr cs:[color], 55                                    ; If key was 'b', change color to blue
+            ret
+
+        space_key:
+            cmp byte ptr cs:[color], MAX_COLOR                              ; If we cannot increment color variable (because it would cause overflow), we reset it to 0
+            je reset_color                  
+
+            inc byte ptr cs:[color]                                         ; Otherwise we increment color
+
+            ret
+
+            reset_color:
+                mov byte ptr cs:[color], 0                                  ; Reset color to 0                
+                ret                                                        
+
+
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; draw - procedure that calls calculations and highlight points on the elipse
+    ;--------------------------------------------------------------------------------------------------------------------------------  
     draw:
-        mov word ptr cs:[x], 0
+        mov word ptr cs:[x], 0                                              ; Set starting point to (0,0)
         mov word ptr cs:[y], 0
-        mov byte ptr cs:[color], 37
-        mov cx, word ptr cs:[r_x]
+        mov cx, word ptr cs:[r_x]                                           ; We will calculate value for each X on interval [0, x_radius]    
         
 
-        elipse_draw_loop_from_x:
-            call calculate_elipse_from_x
-            call highlight_points
-            inc word ptr cs:[x]
-            loop elipse_draw_loop_from_x
+        elipse_draw_loop_from_x:                                            ; This loops calculate Y values based on X coordinate
 
-        mov word ptr cs:[x], 0
+            call calculate_elipse_from_x                                    ; Perform calculation
+            call highlight_points                                           ; Highlight calculated points
+            inc word ptr cs:[x]                                             ; Move to next X coordinate
+
+            loop elipse_draw_loop_from_x                                    ; Loop back
+
+        mov word ptr cs:[x], 0                                              ; Reset starting point
         mov word ptr cs:[y], 0
-        mov byte ptr cs:[color], 37
-        mov cx, word ptr cs:[r_y]
+        mov cx, word ptr cs:[r_y]                                           ; Now we will iterate on Y values on the interval [0, y_radius]
 
-        elipse_draw_loop_from_y:
+        elipse_draw_loop_from_y:                                            ; This loops works like the previous one
+
             call calculate_elipse_from_y
             call highlight_points
             inc word ptr cs:[y]
+
             loop elipse_draw_loop_from_y
 
-        ret
-
+        ret                                                                 ; Go back to main loop
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; calculate_elipse_from_x - procedure that calculates Y coordinates based on X coordinates with equation y = r_y * sqrt(1 - x^2/r_x^2)
+    ;--------------------------------------------------------------------------------------------------------------------------------  
     calculate_elipse_from_x:
-        finit
-        fild        word ptr cs:[x]
-        fmul        st(0), st(0)
-        fild        word ptr cs:[r_x]
-        fmul        st(0), st(0)
-        fdivp       st(1), st(0)
-        fld1
-        fsub        st(0), st(1)
-        fsqrt
-        fild        word ptr cs:[r_y]
-        fmul
-        fist        word ptr cs:[y]
+        finit                                                               ; Start calculations on FPU
 
-        ret
+        fild        word ptr cs:[x]                                         ; Put x value on stack
+        fmul        st(0), st(0)                                            ; Square x
 
+        fild        word ptr cs:[r_x]                                       ; Put r_x value on stack
+        fmul        st(0), st(0)                                            ; Square r_x
+
+        fdivp       st(1), st(0)                                            ; Divide x^2 by r_x^2
+
+        fld1                                                                ; Put 1 value on stack
+
+        fsub        st(0), st(1)                                            ; Subtract from 1 value ov x^2 divided by r_x^2
+
+        fsqrt                                                               ; Calculate square root of the value above
+
+        fild        word ptr cs:[r_y]                                       ; Put on stack value of r_y
+        fmul                                                                ; Multiply last result by r_y
+
+        fist        word ptr cs:[y]                                         ; Now retrieve calculated value to y variable
+
+        ret                                                                 ; Return to drawing loop
+
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; calculate_elipse_from_y - procedure that calculates X coordinates based on Y coordinates with equation x = r_x * sqrt(1 - y^2/r_y^2)
+    ;--------------------------------------------------------------------------------------------------------------------------------  
     calculate_elipse_from_y:
-        finit
+        finit                                                               ; Start calculations on FPU
 
-        fild        word ptr cs:[y]
-        fmul        st(0), st(0)
-        fild        word ptr cs:[r_y]
-        fmul        st(0), st(0)
-        fdivp       st(1), st(0)
-        fld1
-        fsub        st(0), st(1)
-        fsqrt
-        fild        word ptr cs:[r_x]
-        fmul
-        fist        word ptr cs:[x]
+        fild        word ptr cs:[y]                                         ; Put y value on stack
+        fmul        st(0), st(0)                                            ; Square y
 
-        ret
+        fild        word ptr cs:[r_y]                                       ; Put r_y value on stack
+        fmul        st(0), st(0)                                            ; Square r_y
 
-    
+        fdivp       st(1), st(0)                                            ; Divide y^2 by r_y^2
+
+        fld1                                                                ; Put 1 value on stack
+
+        fsub        st(0), st(1)                                            ; Subtract from 1 value ov y^2 divided by r_y^2
+
+        fsqrt                                                               ; Calculate square root of the value above
+
+        fild        word ptr cs:[r_x]                                       ; Put on stack value of r_x
+        fmul                                                                ; Multiply last result by r_x
+
+        fist        word ptr cs:[x]                                         ; Now retrieve calculated value to y variable
+
+        ret                                                                 ; Return to drawing loop
+
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; highlight_points - procedure that highlights four points on elipse based on calculated one
+    ; To highlight point at (x, y) we have to pass offset, calculated by the equation offset = y * screen_width + x
+    ;--------------------------------------------------------------------------------------------------------------------------------  
     highlight_points:
-        mov     ax, 0a000h
-        mov     es, ax
+        mov     ax, 0a000h                                                  ; Move to ax beginning of graphics memory
+        mov     es, ax                                                      ; Store this address in es  
 
-        ; First point
-        mov     ax, CENTER_Y
-        add     ax, word ptr cs:[y]
+        ; First point (x, y)
+        mov     ax, CENTER_Y                                                ; Move to ax y coordinate of center of elipse
+        add     ax, word ptr cs:[y]                                         ; Add to ax value of y coordinate
 
-        mov     bx, SCREEN_WIDTH
-        mul     bx
+        mov     bx, SCREEN_WIDTH                                            ; Set bx to screen width
+        mul     bx                                                          ; Multiply ax by screen width
 
-        mov     bx, CENTER_X
-        add     bx, word ptr cs:[x]
+        mov     bx, CENTER_X                                                ; Move to bx value of x coordinate of center of elipse
+        add     bx, word ptr cs:[x]                                         ; Now add to bx actual value of x coordinate
 
-        add     bx, ax
-        mov     al, byte ptr cs:[color]
-        mov     byte ptr es:[bx], al
+        add     bx, ax                                                      ; Add ax to bx, so we get offset on memory at which we have to draw point
+        mov     al, byte ptr cs:[color]                                     ; Store in al color of the point
 
-        ; Second point
+        mov     byte ptr es:[bx], al                                        ; Draw point on screen
+
+        ; Code below works in the same manner, but highlights 3 other points of elipse
+
+        ; Second point (-x, -y)
         mov     ax, CENTER_Y
         sub     ax, word ptr cs:[y]
 
@@ -365,7 +490,7 @@ my_code segment
         mov     al, byte ptr cs:[color]
         mov     byte ptr es:[bx], al
 
-        ; Third point
+        ; Third point (-x, y)
         mov     ax, CENTER_Y
         add     ax, word ptr cs:[y]
 
@@ -379,7 +504,7 @@ my_code segment
         mov     al, byte ptr cs:[color]
         mov     byte ptr es:[bx], al
 
-        ; Fourth point
+        ; Forth point (x, -y)
         mov     ax, CENTER_Y
         sub     ax, word ptr cs:[y]
 
@@ -393,16 +518,7 @@ my_code segment
         mov     al, byte ptr cs:[color]
         mov     byte ptr es:[bx], al
 
-        ret
-
-
-
-
-
-
-
-
-
+        ret                                                                 ; Go back to main loop
 
 
     ;--------------------------------------------------------------------------------------------------------------------------------
@@ -422,10 +538,10 @@ my_code segment
         jmp end_program                                                     ; Exit program
 
     ;--------------------------------------------------------------------------------------------------------------------------------
-    ; fail_invalid_radii - procedure that ends program when user entered wrong radius
+    ; fail_invalid_radius - procedure that ends program when user entered wrong radius
     ;--------------------------------------------------------------------------------------------------------------------------------
-    fail_invalid_radii:
-        mov dx, offset invalid_radii_msg                                    ; Set my_print parameter to invalid_arguments_number_msg
+    fail_invalid_radius:
+        mov dx, offset invalid_radius_msg                                   ; Set my_print parameter to invalid_radius_msg
         call my_print                                                       ; Display error message
         jmp end_program                                                     ; Exit program
     
@@ -477,8 +593,8 @@ my_code segment
     ; end_program - procedure that terminates program
     ;================================================================================================================================
     restore_text_interface:
-        call clear_screen
-        
+        call clear_screen                                                   ; Clear screen before going back to text interface
+
         mov ax, 3h                                                          ; Code for DOS interruption, that resets DOS to text interface
         int 10h                                                             ; DOS interruption that starts the graphic interface
         jmp end_program
