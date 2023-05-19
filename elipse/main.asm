@@ -8,6 +8,12 @@ DOWN equ 50h
 CENTER_X equ 160 
 CENTER_Y equ 100
 
+MIN_X_RADIUS equ 1
+MAX_X_RADIUS equ 159
+MIN_Y_RADIUS equ 1
+MAX_Y_RADIUS equ 99
+
+
 ; SCREEN
 SCREEN_WIDTH equ 320
 SCREEN_HEIGHT equ 200
@@ -21,6 +27,7 @@ my_data segment
     new_line db 10, 13, '$'
     invalid_arguments_number_msg db "Bledna ilosc argumentow wejsciowych!", 10, 13, '$'
     invalid_argument_msg db "Jeden z argumentow wejsciowych nie jest liczba!", 10, 13, '$'
+    invalid_radii_msg db "Podano nieprawidłowe promienie!", 10, 13, '$'
 
 my_data ends
 ;================================================================================================================================
@@ -159,10 +166,19 @@ my_code segment
         cmp bx, 1
         jle fail_invalid_arguments_number
     
-        pop ax                                                              ; Get first parameter from stack and store it in r_y variable 
+        pop     ax                                                              ; Get first parameter from stack and store it in r_y variable 
+        cmp     ax, MIN_Y_RADIUS
+        jl fail_invalid_radii
+        cmp ax, MAX_Y_RADIUS
+        jg fail_invalid_radii
+
         mov word ptr cs:[r_y], ax
 
         pop ax                                                              ; Get second parameter from stack and store it in r_x variable
+        cmp     ax, MIN_X_RADIUS
+        jl fail_invalid_radii
+        cmp ax, MAX_X_RADIUS
+        jg fail_invalid_radii
         mov word ptr cs:[r_x], ax 
         
         jmp init_gui                                                        ; Start graphic interface
@@ -404,6 +420,14 @@ my_code segment
         mov dx, offset invalid_arguments_number_msg                         ; Set my_print parameter to invalid_arguments_number_msg
         call my_print                                                       ; Display error message
         jmp end_program                                                     ; Exit program
+
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    ; fail_invalid_radii - procedure that ends program when user entered wrong radius
+    ;--------------------------------------------------------------------------------------------------------------------------------
+    fail_invalid_radii:
+        mov dx, offset invalid_radii_msg                                    ; Set my_print parameter to invalid_arguments_number_msg
+        call my_print                                                       ; Display error message
+        jmp end_program                                                     ; Exit program
     
 
     ;--------------------------------------------------------------------------------------------------------------------------------
@@ -453,6 +477,8 @@ my_code segment
     ; end_program - procedure that terminates program
     ;================================================================================================================================
     restore_text_interface:
+        call clear_screen
+        
         mov ax, 3h                                                          ; Code for DOS interruption, that resets DOS to text interface
         int 10h                                                             ; DOS interruption that starts the graphic interface
         jmp end_program
