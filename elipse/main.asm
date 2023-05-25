@@ -12,7 +12,7 @@ DOWN equ 50h
 KEY_R equ 13h
 KEY_G equ 22h
 KEY_B equ 30h
-SPACE equ 39h
+PG_UP equ 49h
 
 ;--------------------------------------------------------------------------------------------------------------------------------
 ; Elipse parameters
@@ -295,7 +295,7 @@ my_code segment
         cmp al, KEY_B
         je b_key
 
-        cmp al, SPACE
+        cmp al, PG_UP
         je space_key
 
         ret                                                                 ; Unrecognized key
