@@ -13,6 +13,7 @@ KEY_R equ 13h
 KEY_G equ 22h
 KEY_B equ 30h
 PG_UP equ 49h
+PG_DOWN equ 51h
 
 ;--------------------------------------------------------------------------------------------------------------------------------
 ; Elipse parameters
@@ -296,7 +297,10 @@ my_code segment
         je b_key
 
         cmp al, PG_UP
-        je space_key
+        je pg_up_key
+
+        cmp al, PG_DOWN
+        je pg_down_key
 
         ret                                                                 ; Unrecognized key
 
@@ -354,7 +358,7 @@ my_code segment
             mov  byte ptr cs:[color], 55                                    ; If key was 'b', change color to blue
             ret
 
-        space_key:
+        pg_up_key:
             cmp byte ptr cs:[color], MAX_COLOR                              ; If we cannot increment color variable (because it would cause overflow), we reset it to 0
             je reset_color                  
 
@@ -364,7 +368,19 @@ my_code segment
 
             reset_color:
                 mov byte ptr cs:[color], 0                                  ; Reset color to 0                
-                ret                                                        
+                ret           
+
+        pg_down_key:
+            cmp byte ptr cs:[color], 0                                      ; If we cannot decrement color variable (because it would cause underflow), we reset it to MAX_COLOR
+            je full_color                  
+
+            dec byte ptr cs:[color]                                         ; Otherwise we decrement color
+
+            ret
+
+            full_color:
+                mov byte ptr cs:[color], MAX_COLOR                          ; Reset color to MAX_COLOR            
+                ret                                                 
 
 
     ;--------------------------------------------------------------------------------------------------------------------------------
