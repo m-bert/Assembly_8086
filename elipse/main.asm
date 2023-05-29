@@ -20,9 +20,11 @@ PG_DOWN equ 51h
 ;--------------------------------------------------------------------------------------------------------------------------------
 CENTER_X equ 160 
 CENTER_Y equ 100
-MIN_X_RADIUS equ 1
+MIN_X_DIAMETER equ 0
+MAX_X_DIAMETER equ 320
+MIN_Y_DIAMETER equ 0
+MAX_Y_DIAMETER equ 200
 MAX_X_RADIUS equ 159
-MIN_Y_RADIUS equ 1
 MAX_Y_RADIUS equ 99
 
 
@@ -43,7 +45,7 @@ my_data segment
     new_line db 10, 13, '$'
     invalid_arguments_number_msg db "Bledna ilosc argumentow wejsciowych!", 10, 13, '$'
     invalid_argument_msg db "Jeden z argumentow wejsciowych nie jest liczba!", 10, 13, '$'
-    invalid_radius_msg db "Podano nieprawidlowe promienie!", 10, 13, '$'
+    invalid_diameter_msg db "Podano nieprawidlowe osie!", 10, 13, '$'
 my_data ends
 ;================================================================================================================================
 
@@ -52,7 +54,7 @@ my_data ends
 ;
 ;   This is a program that uses VGA mode to draw elipse on screen in Assembly 8086 MASM
 ;
-;   To start the program we need to pass two parameters - x and y radius for the elipse
+;   To start the program we need to pass two parameters - x and y diameters for the elipse
 ;   Then we can change both of them using arrow keys:
 ;       - Arrow_up increments y radius
 ;       - Arrow_down decrements y radius
@@ -63,7 +65,8 @@ my_data ends
 ;       - R key changes color to red
 ;       - G key changes color to green
 ;       - B key changes color to blue
-;       - Space increments color value by 1, and if overflow is to happen, resets color value to 0
+;       - PG UP increments color value by 1, and if overflow is to happen, resets color value to 0
+;       - PG DONW decrements color value by 1, and if underflow is to happen, resets color value to 255
 ;
 ;   The elipse is drawn with usage of elipse equation. First we solve the equation to get y in terms of x, which gives us:
 ;       y = r_y * sqrt(1-x^2/r_x^2)
@@ -211,24 +214,41 @@ my_code segment
     check_arguments:
         cmp bx, 2                                                           ; Check if user entered exactly 2 parameters
         jne fail_invalid_arguments_number                                   ; If not, we exit program with proper error message
+
+        get_y_radius:
     
-        pop ax                                                              ; Get first parameter from stack
+            pop ax                                                          ; Get first parameter from stack
 
-        cmp ax, MIN_Y_RADIUS                                                ; Check if y-radius is correct value (ie. that elipse with this parameter will fit on screen)
-        jl fail_invalid_radius                                               ; If not, we exit program with proper error message
-        cmp ax, MAX_Y_RADIUS
-        jg fail_invalid_radius
+            cmp ax, MIN_Y_DIAMETER                                          ; Check if y-radius is correct value (ie. that elipse with this parameter will fit on screen)
+            jl fail_invalid_diameter                                        ; If not, we exit program with proper error message
+            cmp ax, MAX_Y_DIAMETER
+            jg fail_invalid_diameter
 
-        mov word ptr cs:[r_y], ax                                           ; Store first parameter in r_y variable 
+            shr ax, 1                                                       ; Binary shift, i.e. division by 2 to get y-radius value
+            mov word ptr cs:[r_y], ax                                       ; Store first parameter in r_y variable 
 
-        pop ax                                                              ; Get second parameter from stack
+            cmp word ptr cs:[r_y], MAX_Y_RADIUS
+            jle get_x_radius
 
-        cmp ax, MIN_X_RADIUS                                                ; Similar to y-radius situation
-        jl fail_invalid_radius
-        cmp ax, MAX_X_RADIUS
-        jg fail_invalid_radius
+            dec word ptr cs:[r_y]
 
-        mov word ptr cs:[r_x], ax                                           ; Store second parameter in r_x variable 
+        get_x_radius:  
+
+            pop ax                                                          ; Get second parameter from stack
+
+
+            cmp ax, MIN_X_DIAMETER                                          ; Similar to y-radius situation
+            jl fail_invalid_diameter
+            cmp ax, MAX_X_DIAMETER
+            jg fail_invalid_diameter
+
+            shr ax, 1                                                       ; Binary shift, i.e. division by 2 to get x-radius value
+            mov word ptr cs:[r_x], ax                                       ; Store second parameter in r_x variable 
+
+            cmp word ptr cs:[r_x], MAX_X_RADIUS
+            jle init_gui
+
+            dec word ptr cs:[r_x]
         
         jmp init_gui                                                        ; Start graphic interface
 
@@ -306,28 +326,28 @@ my_code segment
 
         left_key:
             mov bx, offset r_x                                              ; Store offset of radius in bx variable - this will serve as a parameter for decrement_radius procedure
-            cmp word ptr cs:[r_x], 1                                        ; If we can decrement radius, we will do this
+            cmp word ptr cs:[r_x], 0                                        ; If we can decrement radius, we will do this
             jg decrement_radius
 
             ret                                                             ; Otherwise we return
 
         right_key:                                                          ; Same as above, but for increment
             mov bx, offset r_x 
-            cmp word ptr cs:[r_x], 159
+            cmp word ptr cs:[r_x], MAX_X_RADIUS
             jl increment_radius
 
             ret
 
         up_key:
             mov bx, offset r_y
-            cmp word ptr cs:[r_y], 99
+            cmp word ptr cs:[r_y], MAX_Y_RADIUS
             jl increment_radius
 
             ret
 
         down_key:
             mov bx, offset r_y
-            cmp word ptr cs:[r_y], 1
+            cmp word ptr cs:[r_y], 0
             jg decrement_radius
 
             ret
@@ -387,6 +407,12 @@ my_code segment
     ; draw - procedure that calls calculations and highlight points on the elipse
     ;--------------------------------------------------------------------------------------------------------------------------------  
     draw:
+        cmp word ptr cs:[r_x], 0
+        je exit_empty_radius
+
+        cmp word ptr cs:[r_y], 0
+        je exit_empty_radius
+
         mov word ptr cs:[x], 0                                              ; Set starting point to (0,0)
         mov word ptr cs:[y], 0
         mov cx, word ptr cs:[r_x]                                           ; We will calculate value for each X on interval [0, x_radius]    
@@ -411,6 +437,9 @@ my_code segment
             inc word ptr cs:[y]
 
             loop elipse_draw_loop_from_y
+
+        exit_empty_radius:
+            ret
 
         ret                                                                 ; Go back to main loop
     ;--------------------------------------------------------------------------------------------------------------------------------
@@ -554,10 +583,10 @@ my_code segment
         jmp end_program                                                     ; Exit program
 
     ;--------------------------------------------------------------------------------------------------------------------------------
-    ; fail_invalid_radius - procedure that ends program when user entered wrong radius
+    ; fail_invalid_diameter - procedure that ends program when user entered wrong radius
     ;--------------------------------------------------------------------------------------------------------------------------------
-    fail_invalid_radius:
-        mov dx, offset invalid_radius_msg                                   ; Set my_print parameter to invalid_radius_msg
+    fail_invalid_diameter:
+        mov dx, offset invalid_diameter_msg                                   ; Set my_print parameter to invalid_radius_msg
         call my_print                                                       ; Display error message
         jmp end_program                                                     ; Exit program
     
