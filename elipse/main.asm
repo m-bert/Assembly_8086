@@ -216,7 +216,6 @@ my_code segment
         jne fail_invalid_arguments_number                                   ; If not, we exit program with proper error message
 
         get_y_radius:
-    
             pop ax                                                          ; Get first parameter from stack
 
             cmp ax, MIN_Y_DIAMETER                                          ; Check if y-radius is correct value (ie. that elipse with this parameter will fit on screen)
@@ -227,13 +226,12 @@ my_code segment
             shr ax, 1                                                       ; Binary shift, i.e. division by 2 to get y-radius value
             mov word ptr cs:[r_y], ax                                       ; Store first parameter in r_y variable 
 
-            cmp word ptr cs:[r_y], MAX_Y_RADIUS
-            jle get_x_radius
+            cmp word ptr cs:[r_y], MAX_Y_RADIUS                             ; If y-radius is greater than MAX_Y_RADIUS, we have to decrement it
+            jle get_x_radius                                                ; Otherwise top and bottom parts of the elipse will be out of screen
 
             dec word ptr cs:[r_y]
 
         get_x_radius:  
-
             pop ax                                                          ; Get second parameter from stack
 
 
@@ -245,7 +243,7 @@ my_code segment
             shr ax, 1                                                       ; Binary shift, i.e. division by 2 to get x-radius value
             mov word ptr cs:[r_x], ax                                       ; Store second parameter in r_x variable 
 
-            cmp word ptr cs:[r_x], MAX_X_RADIUS
+            cmp word ptr cs:[r_x], MAX_X_RADIUS                             ; Same as for y-radius
             jle init_gui
 
             dec word ptr cs:[r_x]
