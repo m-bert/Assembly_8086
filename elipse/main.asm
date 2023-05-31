@@ -44,7 +44,7 @@ my_data segment
     parse_buffer db 50, ?, 50 dup('$')
     new_line db 10, 13, '$'
     invalid_arguments_number_msg db "Bledna ilosc argumentow wejsciowych!", 10, 13, '$'
-    invalid_argument_msg db "Jeden z argumentow wejsciowych nie jest liczba!", 10, 13, '$'
+    invalid_argument_msg db "Jeden z argumentow wejsciowych nie jest liczba naturalna!", 10, 13, '$'
     invalid_diameter_msg db "Podano nieprawidlowe osie!", 10, 13, '$'
 my_data ends
 ;================================================================================================================================
@@ -628,9 +628,7 @@ my_code segment
 
         pop ax                                                              ; Get back original value of ax
 
-        ret      
-        
-                                                               ; Return from procedure                                        
+        ret                                                                 ; Return from procedure                                        
         
     ;================================================================================================================================
     ; end_program - procedure that terminates program
@@ -654,7 +652,7 @@ r_x dw ?                                                                    ; X 
 r_y dw ?                                                                    ; Y radii for elipse
 x dw ?                                                                      ; x point 
 y dw ?                                                                      ; y point
-color db 13                                                                  ; c point
+color db 13                                                                 ; c point
 last_pressed_key db ?                                                       ; Scan code of last pressed key
         
 my_code ends
